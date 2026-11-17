@@ -4,19 +4,16 @@ import {
   Truck,
   UserPlus,
   LogIn,
-  MapPin,
   Building2,
-  Sparkles,
-  ShieldCheck,
   CheckCircle2,
-  Fuel,
-  Wallet,
   Compass,
-  Award,
   Trash2,
   ArrowRight,
   Lock,
   User,
+  Crown,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function AuthOnboarding({
@@ -26,7 +23,8 @@ export default function AuthOnboarding({
   onDeleteAccount,
   onCancelIfInGame,
 }) {
-  const [mode, setMode] = useState(accounts.length > 0 ? 'login' : 'register');
+  // Ana sayfa her zaman "login" (Giriş Ekranı) ile başlar
+  const [mode, setMode] = useState('login');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -65,7 +63,13 @@ export default function AuthOnboarding({
       return;
     }
     if (accounts.some((acc) => acc.username.toLowerCase() === cleanUser)) {
-      setErrorMsg('Bu kullanıcı adı zaten kayıtlı! Giriş yapabilir veya farklı bir ad seçebilirsiniz.');
+      setErrorMsg(
+        'Bu kullanıcı adı zaten kayıtlı! Giriş yapabilir veya farklı bir kullanıcı adı seçebilirsiniz.'
+      );
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Lütfen hesabınız için bir şifre belirleyin.');
       return;
     }
     if (!companyName.trim()) {
@@ -76,9 +80,11 @@ export default function AuthOnboarding({
     onRegisterAccount({
       username: username.trim(),
       ceoName: ceoName.trim() || username.trim(),
-      password: password || '1234',
+      password: password.trim(),
       companyName: companyName.trim(),
-      plateLetters: (plateLetters.trim().toUpperCase().replace(/[^A-Z]/g, '') || 'AL').slice(0, 3),
+      plateLetters: (
+        plateLetters.trim().toUpperCase().replace(/[^A-Z]/g, '') || 'AL'
+      ).slice(0, 3),
       regionId: selectedRegion.id,
       hqCityId: selectedHqId,
       starterPackageId: selectedPackage.id,
@@ -92,11 +98,13 @@ export default function AuthOnboarding({
       (a) => a.username.toLowerCase() === loginUsername.trim().toLowerCase()
     );
     if (!found) {
-      setErrorMsg('Bu kullanıcı adına sahip bir şirket kaydı bulunamadı.');
+      setErrorMsg(
+        'Bu kullanıcı adına sahip bir hesap bulunamadı. "Yeni Oyuncu Kaydı" sekmesinden kayıt olabilirsiniz.'
+      );
       return;
     }
     if (found.password && found.password !== loginPassword) {
-      setErrorMsg('Hatalı şifre girdiniz.');
+      setErrorMsg('Hatalı şifre girdiniz! Lütfen şifrenizi kontrol edin.');
       return;
     }
     onLoginAccount(found.username);
@@ -112,8 +120,8 @@ export default function AuthOnboarding({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100 overflow-y-auto flex flex-col">
-      {/* Üst Başlık */}
-      <div className="border-b border-slate-800/80 bg-slate-900/90 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      {/* Üst Ana Sayfa Navbar */}
+      <div className="border-b border-slate-800/80 bg-slate-900/95 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
             <Truck className="w-6 h-6 text-slate-950" />
@@ -123,45 +131,43 @@ export default function AuthOnboarding({
               ANADOLU LOJİSTİK TYCOON
             </h1>
             <p className="text-xs text-slate-400">
-              Ulusal Taşımacılık, Filo ve Tedarik Zinciri Simülasyonu
+              Online Lojistik Şirketi, Filo ve Tedarik Zinciri Yönetim Simülasyonu
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('login');
+              setErrorMsg('');
+            }}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition ${
+              mode === 'login'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-lg'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            <LogIn className="w-4 h-4" />
+            Giriş Yap (Login)
+          </button>
+
           <button
             type="button"
             onClick={() => {
               setMode('register');
               setErrorMsg('');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition ${
               mode === 'register'
-                ? 'bg-amber-500 text-slate-950 shadow-lg'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-lg'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
             }`}
           >
             <UserPlus className="w-4 h-4" />
-            Yeni Oyuncu Kaydı & Şirket Kur
+            Kayıt Ol & Şirket Kur
           </button>
-
-          {accounts.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setMode('login');
-                setErrorMsg('');
-              }}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
-                mode === 'login'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <LogIn className="w-4 h-4" />
-              Kayıtlı Şirketler ({accounts.length})
-            </button>
-          )}
 
           {onCancelIfInGame && (
             <button
@@ -176,39 +182,146 @@ export default function AuthOnboarding({
       </div>
 
       {/* İçerik Gövdesi */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+      <div className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 flex flex-col justify-center">
         {errorMsg && (
-          <div className="mb-4 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold">
-            ⚠️ {errorMsg}
+          <div className="mb-5 p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-2">
+            <span>⚠️ {errorMsg}</span>
           </div>
         )}
 
         {mode === 'login' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Sol: Kayıtlı Oyuncu Profilleri Listesi (Hızlı Giriş) */}
-            <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-amber-400" />
-                  Kayıtlı Oyuncu Şirketleri
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* SOL 5 SÜTUN: ANA GİRİŞ (LOGIN) FORMU */}
+            <div className="lg:col-span-5 bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+              <div className="space-y-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                  Oyuncu & Yönetici Giriş Ekranı
+                </span>
+                <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                  Hesabınıza Giriş Yapın
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Daha önce kurulan şirketlerden birini seçerek kaldığınız yerden devam edin veya yeni bir oyuncu hesabı açın.
+                <p className="text-xs text-slate-400">
+                  Kullanıcı adınız ve şifrenizle lojistik şirketinizi yönetmeye devam edin.
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-amber-400" />
+                    Kullanıcı Adı
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    placeholder="Örn: admin veya oyuncu_adi"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 outline-none text-sm text-white font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    Şifre
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 outline-none text-sm text-white font-medium"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Giriş Yap ve Operasyonu Başlat
+                </button>
+              </form>
+
+              {/* Süper Yönetici (Admin) Hızlı Doldurma Kutusu */}
+              <div className="pt-4 border-t border-slate-800 space-y-2.5">
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-extrabold text-amber-300 flex items-center gap-1.5">
+                      <Crown className="w-4 h-4" />
+                      Kurucu Yönetici (GM / Admin) Girişi
+                    </div>
+                    <div className="text-[11px] text-slate-300 font-mono mt-0.5">
+                      Kullanıcı: <strong>admin</strong> • Şifre: <strong>admin123</strong>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginUsername('admin');
+                      setLoginPassword('admin123');
+                      setErrorMsg('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shrink-0 shadow"
+                  >
+                    Bilgileri Doldur
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('register');
+                    setErrorMsg('');
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5 transition"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Hesabınız yok mu? Yeni Oyuncu Kaydı Oluşturun →
+                </button>
+              </div>
+            </div>
+
+            {/* SAĞ 7 SÜTUN: SUNUCUDAKİ KAYITLI ŞİRKETLER LİSTESİ */}
+            <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-sky-400" />
+                    Kayıtlı Şirketler & Oyuncu Profilleri ({accounts.length})
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Bir hesaba tıklayarak kullanıcı adını giriş formuna aktarabilir veya yeni bir şirket kurabilirsiniz.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
                 {accounts.map((acc) => {
                   const g = acc.gameState;
                   const hqCity = CITIES.find((c) => c.id === g?.hqCityId);
+                  const isSelectedForLogin =
+                    loginUsername.toLowerCase() === acc.username.toLowerCase();
+
                   return (
                     <div
                       key={acc.username}
-                      className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/40 transition flex flex-wrap items-center justify-between gap-4"
+                      onClick={() => {
+                        setLoginUsername(acc.username);
+                        setLoginPassword('');
+                        setErrorMsg('');
+                      }}
+                      className={`p-4 rounded-2xl border cursor-pointer transition flex flex-wrap items-center justify-between gap-4 ${
+                        isSelectedForLogin
+                          ? 'bg-amber-500/15 border-amber-400 shadow-md'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                      }`}
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-extrabold text-white">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-extrabold text-white">
                             {g?.companyName || acc.companyName}
                           </span>
                           {acc.isAdmin && (
@@ -216,13 +329,14 @@ export default function AuthOnboarding({
                               👑 SÜPER YÖNETİCİ (ADMIN)
                             </span>
                           )}
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
-                            {g?.regionId || acc.regionId} Bölgesi
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">
+                            📍 {g?.regionId || acc.regionId} ({hqCity?.name})
                           </span>
                         </div>
                         <div className="text-xs text-slate-400 flex flex-wrap items-center gap-3">
-                          <span>👤 CEO: <strong className="text-slate-200">{acc.ceoName}</strong> (@{acc.username})</span>
-                          <span>📍 Merkez: <strong className="text-slate-200">{hqCity?.name}</strong></span>
+                          <span>
+                            👤 Kullanıcı: <strong className="text-amber-300">@{acc.username}</strong> ({acc.ceoName})
+                          </span>
                           <span>📅 Gün {g?.day || 1}</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs font-mono pt-1">
@@ -232,27 +346,22 @@ export default function AuthOnboarding({
                           <span className="text-sky-400">
                             Filo: {g?.vehicles?.length || 0} Araç
                           </span>
-                          <span className="text-amber-300">
-                            Şube: {g?.unlockedCities?.length || 1} Şehir
-                          </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onLoginAccount(acc.username)}
-                          className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow"
-                        >
-                          Şirketi Yönet
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
+                        <span className="px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">
+                          {isSelectedForLogin ? '✓ Seçildi (Şifre Girin)' : 'Seç'}
+                        </span>
                         {!acc.isAdmin && (
                           <button
                             type="button"
-                            onClick={() => onDeleteAccount(acc.username)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteAccount(acc.username);
+                            }}
                             title="Kaydı Sil"
-                            className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
+                            className="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -263,51 +372,13 @@ export default function AuthOnboarding({
                 })}
               </div>
             </div>
-
-            {/* Sağ: Kullanıcı Adı & Şifre ile Giriş Formu */}
-            <form
-              onSubmit={handleLoginSubmit}
-              className="lg:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4 self-start"
-            >
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <LogIn className="w-5 h-5 text-sky-400" />
-                Kullanıcı Girişi
-              </h2>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Kullanıcı Adı
-                </label>
-                <input
-                  type="text"
-                  value={loginUsername}
-                  onChange={(e) => setLoginUsername(e.target.value)}
-                  placeholder="kullanici_adi"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Şifre
-                </label>
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs uppercase tracking-wider shadow-lg"
-              >
-                Giriş Yap
-              </button>
-            </form>
           </div>
         ) : (
           /* YENİ OYUNCU KAYDI & BÖLGE SEÇİMLİ ŞİRKET KURULUŞ EKRANI */
-          <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <form
+            onSubmit={handleRegisterSubmit}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+          >
             {/* Sol 7 Sütun: Adım 1 (Oyuncu & Şirket) + Adım 2 (Bölge & Merkez Seçimi) */}
             <div className="lg:col-span-7 space-y-6">
               {/* 1. Oyuncu Hesabı ve Şirket Kimliği */}
@@ -315,7 +386,7 @@ export default function AuthOnboarding({
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
                     <User className="w-5 h-5 text-amber-400" />
-                    1. Oyuncu Hesabı & Şirket Kimliği
+                    1. Yeni Oyuncu Hesabı & Şirket Kimliği
                   </h2>
                   <span className="text-[11px] text-slate-400">Adım 1 / 3</span>
                 </div>
@@ -336,10 +407,11 @@ export default function AuthOnboarding({
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Kurucu / CEO Adı
+                      Kurucu / CEO Adı *
                     </label>
                     <input
                       type="text"
+                      required
                       value={ceoName}
                       onChange={(e) => setCeoName(e.target.value)}
                       placeholder="Örn: Civan Demir"
@@ -348,10 +420,11 @@ export default function AuthOnboarding({
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Hesap Şifresi (İsteğe Bağlı)
+                      Hesap Şifresi *
                     </label>
                     <input
                       type="password"
+                      required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••"
@@ -431,7 +504,9 @@ export default function AuthOnboarding({
                           <div className="text-[11px] text-slate-400">{reg.subtitle}</div>
                         </div>
 
-                        <div className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold ${reg.badgeClass}`}>
+                        <div
+                          className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold ${reg.badgeClass}`}
+                        >
                           ★ {reg.perkTitle}
                         </div>
                       </button>
@@ -530,7 +605,9 @@ export default function AuthOnboarding({
                           )}
                           <circle
                             r={isHq ? '8' : isStart ? '6' : '3.5'}
-                            fill={isHq ? '#f59e0b' : isStart ? '#10b981' : '#334155'}
+                            fill={
+                              isHq ? '#f59e0b' : isStart ? '#10b981' : '#334155'
+                            }
                           />
                           {(isStart || isHq) && (
                             <text
@@ -580,7 +657,9 @@ export default function AuthOnboarding({
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-white">{pkg.name}</span>
+                          <span className="font-bold text-xs text-white">
+                            {pkg.name}
+                          </span>
                           <span className="font-mono text-xs font-extrabold text-emerald-400">
                             ₺{totalCash.toLocaleString('tr-TR')} Nakit
                           </span>
@@ -599,10 +678,10 @@ export default function AuthOnboarding({
                 <div className="pt-3">
                   <button
                     type="submit"
-                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-sm shadow-xl flex items-center justify-center gap-2 transition"
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-xl flex items-center justify-center gap-2 transition"
                   >
                     <CheckCircle2 className="w-5 h-5" />
-                    Şirketi Tescil Et ve Operasyona Başla!
+                    Kaydı Tamamla ve Şirketi Kur!
                   </button>
                 </div>
               </div>

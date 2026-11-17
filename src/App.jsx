@@ -340,29 +340,9 @@ export default function App() {
     return list;
   });
 
-  const [activeUsername, setActiveUsername] = useState(() => {
-    try {
-      return localStorage.getItem(ACTIVE_USER_KEY) || null;
-    } catch (e) {
-      return null;
-    }
-  });
-
-  const [game, setGame] = useState(() => {
-    try {
-      const savedAccounts = JSON.parse(
-        localStorage.getItem(ACCOUNTS_STORAGE_KEY) || '[]'
-      );
-      const actUser = localStorage.getItem(ACTIVE_USER_KEY);
-      if (actUser) {
-        const found = savedAccounts.find((a) => a.username === actUser);
-        if (found?.gameState) return found.gameState;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return null;
-  });
+  // Ana sayfa açıldığında her zaman Giriş Yap (Login) ekranı ile karşıla
+  const [activeUsername, setActiveUsername] = useState(null);
+  const [game, setGame] = useState(null);
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   // speed: 0=Duraklat, 1=Gerçekçi (1 Oyun Saati = 1 Gerçek Dk -> 1sn'de 1dk), 5=5x, 15=15x, 60=60x
