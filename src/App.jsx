@@ -308,6 +308,101 @@ function createDefaultAdminAccount() {
   };
 }
 
+// Test ve Yönetim İçin 6 Hazır Demo Oyuncu Profili
+const DEMO_PLAYER_TEMPLATES = [
+  {
+    username: 'emre_kargo',
+    ceoName: 'Emre Yılmaz',
+    password: '1234',
+    companyName: 'Marmara Hızlı Lojistik A.Ş.',
+    plateLetters: 'MHL',
+    regionId: 'Marmara',
+    hqCityId: 'bursa',
+    starterPackageId: 'balanced',
+    cash: 185000,
+    xp: 480,
+  },
+  {
+    username: 'zeynep_ege',
+    ceoName: 'Zeynep Kaya',
+    password: '1234',
+    companyName: 'EgeLiman Konteyner & Nakliyat',
+    plateLetters: 'EGE',
+    regionId: 'Ege',
+    hqCityId: 'izmir',
+    starterPackageId: 'express_fleet',
+    cash: 240000,
+    xp: 750,
+  },
+  {
+    username: 'burak_ankara',
+    ceoName: 'Burak Demir',
+    password: '1234',
+    companyName: 'Başkent Kavşak Lojistik Ltd.',
+    plateLetters: 'BSK',
+    regionId: 'İç Anadolu',
+    hqCityId: 'ankara',
+    starterPackageId: 'heavy_starter',
+    cash: 162000,
+    xp: 620,
+  },
+  {
+    username: 'kadir_frigo',
+    ceoName: 'Kadir Çelik',
+    password: '1234',
+    companyName: 'Toroslar Soğuk Zincir A.Ş.',
+    plateLetters: 'TRS',
+    regionId: 'Akdeniz',
+    hqCityId: 'mersin',
+    starterPackageId: 'balanced',
+    cash: 310000,
+    xp: 940,
+  },
+  {
+    username: 'elif_karadeniz',
+    ceoName: 'Elif Şahin',
+    password: '1234',
+    companyName: 'Poyraz Karadeniz Ro-Ro Lojistik',
+    plateLetters: 'PYZ',
+    regionId: 'Karadeniz',
+    hqCityId: 'samsun',
+    starterPackageId: 'balanced',
+    cash: 195000,
+    xp: 530,
+  },
+  {
+    username: 'serkan_dogu',
+    ceoName: 'Serkan Polat',
+    password: '1234',
+    companyName: 'İpekyolu Transit Nakliyat A.Ş.',
+    plateLetters: 'IPK',
+    regionId: 'Güneydoğu',
+    hqCityId: 'gaziantep',
+    starterPackageId: 'heavy_starter',
+    cash: 275000,
+    xp: 880,
+  },
+];
+
+function createDemoAccountFromTemplate(tpl) {
+  const base = createInitialState(tpl);
+  return {
+    username: tpl.username,
+    ceoName: tpl.ceoName,
+    password: tpl.password || '1234',
+    companyName: tpl.companyName,
+    regionId: tpl.regionId,
+    hqCityId: tpl.hqCityId,
+    isAdmin: false,
+    createdAt: new Date().toISOString(),
+    gameState: {
+      ...base,
+      cash: tpl.cash || base.cash,
+      xp: tpl.xp || base.xp,
+    },
+  };
+}
+
 export default function App() {
   const [accounts, setAccounts] = useState(() => {
     let list = [];
@@ -317,15 +412,13 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    // Eğer 'admin' yönetici hesabı listede yoksa otomatik oluştur
+
+    let changed = false;
+    // 1. 'admin' yönetici hesabı yoksa ekle
     if (!list.some((a) => a.username.toLowerCase() === 'admin')) {
       const adminAcc = createDefaultAdminAccount();
       list = [adminAcc, ...list];
-      try {
-        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(list));
-      } catch (e) {
-        // ignore
-      }
+      changed = true;
     } else {
       list = list.map((a) =>
         a.username.toLowerCase() === 'admin'
@@ -336,6 +429,22 @@ export default function App() {
             }
           : a
       );
+    }
+
+    // 2. Test için 6 hazır demo oyuncuyu kontrol et ve eksik olanları otomatik ekle
+    DEMO_PLAYER_TEMPLATES.forEach((tpl) => {
+      if (!list.some((a) => a.username.toLowerCase() === tpl.username.toLowerCase())) {
+        list.push(createDemoAccountFromTemplate(tpl));
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      try {
+        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        // ignore
+      }
     }
     return list;
   });
@@ -435,14 +544,15 @@ export default function App() {
       const giftNote = payload.giftMessage || 'Yönetici Desteği';
 
       switch (actionType) {
-        case 'GRANT_CASH': {
+        case 'GRANT_CASH':
+        case 'GRANT_CASH_ALL': {
           const amt = Number(payload.amount) || 0;
           return {
             ...g,
             cash: (g.cash || 0) + amt,
             ledger: [
               {
-                id: `led_adm_${Date.now()}`,
+                id: `led_adm_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
                 day: g.day,
                 title: `👑 [ADMIN HİBESİ] ${giftNote}`,
                 amount: amt,
@@ -452,7 +562,7 @@ export default function App() {
             ],
             logs: [
               {
-                id: `log_adm_${Date.now()}`,
+                id: `log_adm_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
                 time: timeStr,
                 type: 'success',
                 text: `🎁 [YÖNETİCİ HEDİYESİ] ${giftNote}: Kasanıza +₺${amt.toLocaleString(
@@ -602,6 +712,23 @@ export default function App() {
       }
     };
 
+    if (targetUsername === 'ALL') {
+      setGame((prev) => applyToGameState(prev));
+      setAccounts((prev) => {
+        const updated = prev.map((acc) => ({
+          ...acc,
+          gameState: applyToGameState(acc.gameState),
+        }));
+        try {
+          localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
+        } catch (e) {
+          // ignore
+        }
+        return updated;
+      });
+      return;
+    }
+
     if (targetUsername === activeUsername) {
       setGame((prev) => applyToGameState(prev));
     } else {
@@ -619,6 +746,38 @@ export default function App() {
         return updated;
       });
     }
+  };
+
+  // Admin Panelden Tek Tıkla Yeni Demo Oyuncu Oluşturma
+  const handleCreateDemoPlayer = () => {
+    const num = accounts.length + 1;
+    const sampleRegions = ['Marmara', 'Ege', 'İç Anadolu', 'Akdeniz', 'Karadeniz', 'Güneydoğu', 'Doğu Anadolu'];
+    const regId = sampleRegions[num % sampleRegions.length];
+    const regObj = REGIONS.find((r) => r.id === regId) || REGIONS[0];
+    const username = `oyuncu_${num}`;
+    const tpl = {
+      username,
+      ceoName: `Demo Kaptan ${num}`,
+      password: '1234',
+      companyName: `Anadolu Filo ${num} Lojistik A.Ş.`,
+      plateLetters: `D${num}`,
+      regionId: regObj.id,
+      hqCityId: regObj.defaultHq,
+      starterPackageId: 'balanced',
+      cash: 150000,
+      xp: 350,
+    };
+    const newAcc = createDemoAccountFromTemplate(tpl);
+    setAccounts((prev) => {
+      const updated = [...prev, newAcc];
+      try {
+        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        // ignore
+      }
+      return updated;
+    });
+    return username;
   };
 
   // Hesap Silme
@@ -3356,6 +3515,7 @@ export default function App() {
                 activeUsername={activeUsername}
                 onAdminAction={handleAdminAction}
                 onSwitchToAccount={handleLoginAccount}
+                onCreateDemoPlayer={handleCreateDemoPlayer}
               />
             )}
 
