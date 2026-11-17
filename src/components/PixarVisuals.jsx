@@ -5,6 +5,7 @@ import VehicleIcon, { getVehicleTypeShortLabel } from './VehicleIcon';
 const FEMALE_NAMES = ['Ayşe', 'Zeynep', 'Elif', 'Fatma', 'Merve', 'Selin', 'Derya'];
 
 export function getDriverAvatarPath(driver = {}) {
+  const base = import.meta.env.BASE_URL || './';
   const name = driver.name || '';
   const firstName = name.split(' ')[0];
   const isFemale = FEMALE_NAMES.includes(firstName);
@@ -17,25 +18,26 @@ export function getDriverAvatarPath(driver = {}) {
 
   if (isFemale) {
     return hash % 2 === 0
-      ? '/images/drivers/driver_3.png'
-      : '/images/drivers/driver_6.png';
+      ? `${base}images/drivers/driver_3.png`
+      : `${base}images/drivers/driver_6.png`;
   }
 
-  if (driver.licenses?.adr) return '/images/drivers/driver_5.png';
+  if (driver.licenses?.adr) return `${base}images/drivers/driver_5.png`;
   if (driver.licenses?.heavy || (driver.skill || 1) >= 4)
-    return '/images/drivers/driver_4.png';
+    return `${base}images/drivers/driver_4.png`;
 
   const malePool = [
-    '/images/drivers/driver_1.png',
-    '/images/drivers/driver_2.png',
-    '/images/drivers/driver_4.png',
-    '/images/drivers/driver_5.png',
+    `${base}images/drivers/driver_1.png`,
+    `${base}images/drivers/driver_2.png`,
+    `${base}images/drivers/driver_4.png`,
+    `${base}images/drivers/driver_5.png`,
   ];
   return malePool[hash % malePool.length];
 }
 
 export function getVehicleImagePath(modelId = 'van_transit') {
-  return `/images/vehicles/${modelId}.png`;
+  const base = import.meta.env.BASE_URL || './';
+  return `${base}images/vehicles/${modelId}.png`;
 }
 
 // Pixar Tarzı Şoför Portre Bileşeni
