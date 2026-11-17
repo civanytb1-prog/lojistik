@@ -1473,36 +1473,42 @@ export default function App() {
   };
 
   // Şirket Net Değeri ve Türkiye Ligi Sıralaması
-  const leagueStandings = useMemo(() => {
-    const fleetValue = game.vehicles.reduce((s, v) => s + Math.round(v.price * (v.condition / 100) * 0.8), 0);
-    const depotValue = Object.values(game.depots || {}).reduce((s, d) => s + d.level * 120000, 0);
-    const stockValue = WAREHOUSE_COMMODITIES.reduce(
-      (s, c) =>
-        s +
-        ((game.warehouseInventory && game.warehouseInventory[c.id]) || 0) *
-          ((game.commodityPrices && game.commodityPrices[c.id]) || c.basePrice),
-      0
-    );
-    const debt = game.loans.reduce((s, l) => s + l.remainingAmount, 0);
-    const playerNetWorth = Math.max(10000, game.cash + fleetValue + depotValue + stockValue - debt);
+  const fleetValue = (game.vehicles || []).reduce(
+    (s, v) => s + Math.round(v.price * (v.condition / 100) * 0.8),
+    0
+  );
+  const depotValue = Object.values(game.depots || {}).reduce(
+    (s, d) => s + d.level * 120000,
+    0
+  );
+  const stockValue = WAREHOUSE_COMMODITIES.reduce(
+    (s, c) =>
+      s +
+      ((game.warehouseInventory && game.warehouseInventory[c.id]) || 0) *
+        ((game.commodityPrices && game.commodityPrices[c.id]) || c.basePrice),
+    0
+  );
+  const debt = (game.loans || []).reduce((s, l) => s + l.remainingAmount, 0);
+  const playerNetWorth = Math.max(
+    10000,
+    (game.cash || 0) + fleetValue + depotValue + stockValue - debt
+  );
 
-    const hqCityObj = CITIES.find((c) => c.id === game.hqCityId);
-    const allCompanies = [
-      ...(game.rivals || INITIAL_RIVAL_COMPANIES),
-      {
-        id: 'player_company',
-        isPlayer: true,
-        name: game.companyName,
-        hq: hqCityObj?.name || 'İstanbul',
-        region: game.regionId || 'Marmara',
-        fleetCount: game.vehicles.length,
-        reputation: game.reputation,
-        netWorth: playerNetWorth,
-        tonsMoved: Math.round(game.stats.totalTonsMoved),
-      },
-    ];
-    return allCompanies.sort((a, b) => b.netWorth - a.netWorth);
-  }, [game]);
+  const hqCityObj = CITIES.find((c) => c.id === game.hqCityId);
+  const leagueStandings = [
+    ...(game.rivals || INITIAL_RIVAL_COMPANIES),
+    {
+      id: 'player_company',
+      isPlayer: true,
+      name: game.companyName,
+      hq: hqCityObj?.name || 'İstanbul',
+      region: game.regionId || 'Marmara',
+      fleetCount: (game.vehicles || []).length,
+      reputation: game.reputation || 60,
+      netWorth: playerNetWorth,
+      tonsMoved: Math.round(game.stats?.totalTonsMoved || 0),
+    },
+  ].sort((a, b) => b.netWorth - a.netWorth);
 
   const playerRank = leagueStandings.findIndex((c) => c.isPlayer) + 1;
   const hqWeatherKey =
@@ -1640,6 +1646,21 @@ export default function App() {
 
         {/* Sağ: Otomasyon, Zaman Kontrolü & Yeni Oyun */}
         <div className="flex items-center gap-2">
+          {(game.isAdmin || activeUsername?.toLowerCase() === 'admin') && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 transition shadow-lg ${
+                activeTab === 'admin'
+                  ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 border-amber-300'
+                  : 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30'
+              }`}
+              title="Süper Yönetici (GM / Admin) Kontrol Panelini Aç"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Admin Paneli</span>
+            </button>
+          )}
+
           {/* Otomatik Sevkiyat Butonu */}
           <button
             onClick={() =>
