@@ -190,14 +190,16 @@ export default function AuthOnboarding({
         )}
 
         {mode === 'login' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* SOL 5 SÜTUN: ANA GİRİŞ (LOGIN) FORMU */}
-            <div className="lg:col-span-5 bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
-              <div className="space-y-1">
+          <div className="max-w-md w-full mx-auto">
+            <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+              <div className="space-y-1.5 text-center">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 mb-3">
+                  <Lock className="w-7 h-7 text-slate-950" />
+                </div>
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-                  Oyuncu & Yönetici Giriş Ekranı
+                  Güvenli Giriş Portalı
                 </span>
-                <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                <h2 className="text-2xl font-extrabold text-white">
                   Hesabınıza Giriş Yapın
                 </h2>
                 <p className="text-xs text-slate-400">
@@ -214,9 +216,10 @@ export default function AuthOnboarding({
                   <input
                     type="text"
                     required
+                    autoComplete="username"
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder="Örn: admin veya oyuncu_adi"
+                    placeholder="Kullanıcı adınızı girin"
                     className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 outline-none text-sm text-white font-medium"
                   />
                 </div>
@@ -229,6 +232,7 @@ export default function AuthOnboarding({
                   <input
                     type="password"
                     required
+                    autoComplete="current-password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
@@ -245,31 +249,7 @@ export default function AuthOnboarding({
                 </button>
               </form>
 
-              {/* Süper Yönetici (Admin) Hızlı Doldurma Kutusu */}
-              <div className="pt-4 border-t border-slate-800 space-y-2.5">
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-extrabold text-amber-300 flex items-center gap-1.5">
-                      <Crown className="w-4 h-4" />
-                      Kurucu Yönetici (GM / Admin) Girişi
-                    </div>
-                    <div className="text-[11px] text-slate-300 font-mono mt-0.5">
-                      Kullanıcı: <strong>admin</strong> • Şifre: <strong>admin123</strong>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginUsername('admin');
-                      setLoginPassword('admin123');
-                      setErrorMsg('');
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shrink-0 shadow"
-                  >
-                    Bilgileri Doldur
-                  </button>
-                </div>
-
+              <div className="pt-4 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -281,95 +261,6 @@ export default function AuthOnboarding({
                   <UserPlus className="w-4 h-4" />
                   Hesabınız yok mu? Yeni Oyuncu Kaydı Oluşturun →
                 </button>
-              </div>
-            </div>
-
-            {/* SAĞ 7 SÜTUN: SUNUCUDAKİ KAYITLI ŞİRKETLER LİSTESİ */}
-            <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-sky-400" />
-                    Kayıtlı Şirketler & Oyuncu Profilleri ({accounts.length})
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Bir hesaba tıklayarak kullanıcı adını giriş formuna aktarabilir veya yeni bir şirket kurabilirsiniz.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                {accounts.map((acc) => {
-                  const g = acc.gameState;
-                  const hqCity = CITIES.find((c) => c.id === g?.hqCityId);
-                  const isSelectedForLogin =
-                    loginUsername.toLowerCase() === acc.username.toLowerCase();
-
-                  return (
-                    <div
-                      key={acc.username}
-                      onClick={() => {
-                        setLoginUsername(acc.username);
-                        setLoginPassword('');
-                        setErrorMsg('');
-                      }}
-                      className={`p-4 rounded-2xl border cursor-pointer transition flex flex-wrap items-center justify-between gap-4 ${
-                        isSelectedForLogin
-                          ? 'bg-amber-500/15 border-amber-400 shadow-md'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-extrabold text-white">
-                            {g?.companyName || acc.companyName}
-                          </span>
-                          {acc.isAdmin && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black">
-                              👑 SÜPER YÖNETİCİ (ADMIN)
-                            </span>
-                          )}
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">
-                            📍 {g?.regionId || acc.regionId} ({hqCity?.name})
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-400 flex flex-wrap items-center gap-3">
-                          <span>
-                            👤 Kullanıcı: <strong className="text-amber-300">@{acc.username}</strong> ({acc.ceoName})
-                          </span>
-                          <span>📅 Gün {g?.day || 1}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs font-mono pt-1">
-                          <span className="text-emerald-400 font-bold">
-                            Kasa: ₺{(g?.cash || 0).toLocaleString('tr-TR')}
-                          </span>
-                          <span className="text-sky-400">
-                            Filo: {g?.vehicles?.length || 0} Araç
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">
-                          {isSelectedForLogin ? '✓ Seçildi (Şifre Girin)' : 'Seç'}
-                        </span>
-                        {!acc.isAdmin && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteAccount(acc.username);
-                            }}
-                            title="Kaydı Sil"
-                            className="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           </div>

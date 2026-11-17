@@ -293,10 +293,22 @@ export default function AdminPanel({
                 @{targetAccount.username} — {targetGame.companyName} ({targetAccount.ceoName})
               </h3>
             </div>
-            <div className="text-right font-mono">
-              <div className="text-xs text-slate-400">Oyuncunun Kasa Bakiyesi</div>
-              <div className="text-lg font-extrabold text-emerald-400">
-                ₺{(targetGame.cash || 0).toLocaleString('tr-TR')}
+            <div className="flex items-center gap-3">
+              {targetAccount.username !== activeUsername && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchToAccount(targetAccount.username)}
+                  className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-300 text-xs font-extrabold transition"
+                  title="Bu oyuncunun hesabına geçiş yaparak oyunu onun gözünden test et"
+                >
+                  🚀 Hesaba Geç (Test Et)
+                </button>
+              )}
+              <div className="text-right font-mono">
+                <div className="text-xs text-slate-400">Oyuncunun Kasa Bakiyesi</div>
+                <div className="text-lg font-extrabold text-emerald-400">
+                  ₺{(targetGame.cash || 0).toLocaleString('tr-TR')}
+                </div>
               </div>
             </div>
           </div>

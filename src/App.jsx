@@ -452,6 +452,7 @@ export default function App() {
   // Ana sayfa açıldığında her zaman Giriş Yap (Login) ekranı ile karşıla
   const [activeUsername, setActiveUsername] = useState(null);
   const [game, setGame] = useState(null);
+  const [impersonatedByAdmin, setImpersonatedByAdmin] = useState(false);
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   // speed: 0=Duraklat, 1=Gerçekçi (1 Oyun Saati = 1 Gerçek Dk -> 1sn'de 1dk), 5=5x, 15=15x, 60=60x
@@ -505,6 +506,7 @@ export default function App() {
     setAccounts(updatedAccounts);
     setActiveUsername(newAccount.username);
     setGame(newGameState);
+    setImpersonatedByAdmin(false);
     setSelectedCityId(null);
     setShowAuthModal(false);
 
@@ -517,7 +519,7 @@ export default function App() {
   };
 
   // Mevcut Oyuncu Hesabına Giriş
-  const handleLoginAccount = (username) => {
+  const handleLoginAccount = (username, options = {}) => {
     const found = accounts.find((a) => a.username === username);
     if (!found) return;
     setActiveUsername(found.username);
@@ -525,6 +527,9 @@ export default function App() {
       ...found.gameState,
       isAdmin: Boolean(found.isAdmin || found.gameState?.isAdmin),
     });
+    setImpersonatedByAdmin(
+      Boolean(options.fromAdmin && found.username.toLowerCase() !== 'admin')
+    );
     setSelectedCityId(null);
     setShowAuthModal(false);
     try {
@@ -1817,6 +1822,20 @@ export default function App() {
             >
               <Crown className="w-4 h-4" />
               <span>Admin Paneli</span>
+            </button>
+          )}
+
+          {impersonatedByAdmin && !game.isAdmin && (
+            <button
+              onClick={() => {
+                handleLoginAccount('admin');
+                setActiveTab('admin');
+              }}
+              className="px-3 py-1.5 rounded-xl border bg-amber-500/20 border-amber-400/60 text-amber-300 hover:bg-amber-500/30 text-xs font-extrabold flex items-center gap-1.5 transition shadow-lg"
+              title="Demo hesap testini bitirip Admin Paneli hesabına geri dön"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Admin'e Dön</span>
             </button>
           )}
 
@@ -3514,7 +3533,10 @@ export default function App() {
                 accounts={accounts}
                 activeUsername={activeUsername}
                 onAdminAction={handleAdminAction}
-                onSwitchToAccount={handleLoginAccount}
+                onSwitchToAccount={(username) => {
+                  handleLoginAccount(username, { fromAdmin: true });
+                  setActiveTab('command');
+                }}
                 onCreateDemoPlayer={handleCreateDemoPlayer}
               />
             )}
