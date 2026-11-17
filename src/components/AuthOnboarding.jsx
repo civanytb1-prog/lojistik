@@ -211,6 +211,11 @@ export default function AuthOnboarding({
                           <span className="text-base font-extrabold text-white">
                             {g?.companyName || acc.companyName}
                           </span>
+                          {acc.isAdmin && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black">
+                              👑 SÜPER YÖNETİCİ (ADMIN)
+                            </span>
+                          )}
                           <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
                             {g?.regionId || acc.regionId} Bölgesi
                           </span>
@@ -242,14 +247,16 @@ export default function AuthOnboarding({
                           Şirketi Yönet
                           <ArrowRight className="w-4 h-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteAccount(acc.username)}
-                          title="Kaydı Sil"
-                          className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {!acc.isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteAccount(acc.username)}
+                            title="Kaydı Sil"
+                            className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

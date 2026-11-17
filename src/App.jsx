@@ -21,6 +21,7 @@ import {
 import TurkeyMap from './components/TurkeyMap';
 import DispatchModal from './components/DispatchModal';
 import AuthOnboarding from './components/AuthOnboarding';
+import AdminPanel from './components/AdminPanel';
 import VehicleIcon, {
   getVehicleTypeShortLabel,
   CargoTypeIcon,
@@ -69,6 +70,7 @@ import {
   Trophy,
   CloudRain,
   Boxes,
+  Crown,
 } from 'lucide-react';
 
 const ACCOUNTS_STORAGE_KEY = 'anadolu_lojistik_accounts_v2';
@@ -272,15 +274,70 @@ function createInitialState({
   };
 }
 
+// Varsayılan Kurucu Süper Yönetici (Admin) Hesabı Oluşturucu
+function createDefaultAdminAccount() {
+  const baseState = createInitialState({
+    username: 'admin',
+    ceoName: 'Civan (Kurucu Yönetici)',
+    companyName: 'Anadolu Lojistik Yönetim Kurulu A.Ş.',
+    plateLetters: 'ADM',
+    regionId: 'Marmara',
+    hqCityId: 'istanbul',
+    starterPackageId: 'balanced',
+  });
+
+  const adminGameState = {
+    ...baseState,
+    isAdmin: true,
+    cash: 2500000,
+    xp: 2200,
+    reputation: 98,
+    fuelTankLiters: 15000,
+  };
+
+  return {
+    username: 'admin',
+    ceoName: 'Civan (Kurucu Yönetici)',
+    password: 'admin123',
+    companyName: 'Anadolu Lojistik Yönetim Kurulu A.Ş.',
+    regionId: 'Marmara',
+    hqCityId: 'istanbul',
+    isAdmin: true,
+    createdAt: new Date().toISOString(),
+    gameState: adminGameState,
+  };
+}
+
 export default function App() {
   const [accounts, setAccounts] = useState(() => {
+    let list = [];
     try {
       const saved = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) list = JSON.parse(saved);
     } catch (e) {
       console.error(e);
     }
-    return [];
+    // Eğer 'admin' yönetici hesabı listede yoksa otomatik oluştur
+    if (!list.some((a) => a.username.toLowerCase() === 'admin')) {
+      const adminAcc = createDefaultAdminAccount();
+      list = [adminAcc, ...list];
+      try {
+        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        // ignore
+      }
+    } else {
+      list = list.map((a) =>
+        a.username.toLowerCase() === 'admin'
+          ? {
+              ...a,
+              isAdmin: true,
+              gameState: { ...(a.gameState || {}), isAdmin: true },
+            }
+          : a
+      );
+    }
+    return list;
   });
 
   const [activeUsername, setActiveUsername] = useState(() => {
@@ -375,13 +432,212 @@ export default function App() {
     const found = accounts.find((a) => a.username === username);
     if (!found) return;
     setActiveUsername(found.username);
-    setGame(found.gameState);
+    setGame({
+      ...found.gameState,
+      isAdmin: Boolean(found.isAdmin || found.gameState?.isAdmin),
+    });
     setSelectedCityId(null);
     setShowAuthModal(false);
     try {
       localStorage.setItem(ACTIVE_USER_KEY, found.username);
     } catch (e) {
       // ignore
+    }
+  };
+
+  // SÜPER YÖNETİCİ (ADMIN) KOMUT İŞLEYİCİSİ (Herhangi Bir Oyuncuya Para, Araç, XP, Hediye Gönderme)
+  const handleAdminAction = (targetUsername, actionType, payload) => {
+    const applyToGameState = (g) => {
+      if (!g) return g;
+      const timeStr = `Gün ${g.day} • ${String(g.hour).padStart(2, '0')}:${String(
+        g.minute || 0
+      ).padStart(2, '0')}`;
+      const giftNote = payload.giftMessage || 'Yönetici Desteği';
+
+      switch (actionType) {
+        case 'GRANT_CASH': {
+          const amt = Number(payload.amount) || 0;
+          return {
+            ...g,
+            cash: (g.cash || 0) + amt,
+            ledger: [
+              {
+                id: `led_adm_${Date.now()}`,
+                day: g.day,
+                title: `👑 [ADMIN HİBESİ] ${giftNote}`,
+                amount: amt,
+                type: 'income',
+              },
+              ...(g.ledger || []).slice(0, 59),
+            ],
+            logs: [
+              {
+                id: `log_adm_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `🎁 [YÖNETİCİ HEDİYESİ] ${giftNote}: Kasanıza +₺${amt.toLocaleString(
+                  'tr-TR'
+                )} nakit para eklendi!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        case 'GRANT_XP': {
+          const addXp = Number(payload.xp) || 1000;
+          return {
+            ...g,
+            xp: (g.xp || 0) + addXp,
+            logs: [
+              {
+                id: `log_adm_xp_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `👑 [YÖNETİCİ HEDİYESİ] Şirketinize +${addXp.toLocaleString(
+                  'tr-TR'
+                )} XP tecrübe puanı tanımlandı!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        case 'MAX_REPUTATION': {
+          return {
+            ...g,
+            reputation: 100,
+            loans: [],
+            logs: [
+              {
+                id: `log_adm_rep_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `👑 [YÖNETİCİ HEDİYESİ] Şirket itibarınız %100'e çıkarıldı ve tüm banka kredi borçlarınız kapatıldı!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        case 'GRANT_FUEL': {
+          const liters = Number(payload.liters) || 25000;
+          return {
+            ...g,
+            fuelTankLiters: (g.fuelTankLiters || 0) + liters,
+            logs: [
+              {
+                id: `log_adm_fuel_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `⛽ [YÖNETİCİ HEDİYESİ] Şirket yakıt tankınıza +${liters.toLocaleString(
+                  'tr-TR'
+                )} Litre mazot hediye edildi!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        case 'UNLOCK_ALL_CITIES': {
+          const allCityIds = CITIES.map((c) => c.id);
+          const allUpgIds = COMPANY_UPGRADES.map((u) => u.id);
+          return {
+            ...g,
+            unlockedCities: allCityIds,
+            upgrades: allUpgIds,
+            logs: [
+              {
+                id: `log_adm_cities_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `🗺️ [YÖNETİCİ HEDİYESİ] Türkiye'deki 22 il şubesinin tamamı ve tüm Ar-Ge teknolojileri şirketiniz için açıldı!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        case 'GRANT_ELITE_DRIVER': {
+          const eliteDrv = {
+            ...generateDriver(Date.now() % 1000, 5),
+            name: 'Kaptan Demirhan (5★ Elit)',
+            skill: 5,
+            ecoBonus: 22,
+            fatigue: 0,
+            dailyDrivenHours: 0,
+            weeklyDrivenHours: 0,
+            licenses: { src: true, cold: true, adr: true, heavy: true },
+            status: 'idle',
+          };
+          return {
+            ...g,
+            drivers: [eliteDrv, ...(g.drivers || [])],
+            logs: [
+              {
+                id: `log_adm_drv_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `👨‍✈️ [YÖNETİCİ HEDİYESİ] Tüm sertifikalara sahip 5★ Efsanevi Kaptan Şoför kadronuza katıldı!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        case 'GRANT_VEHICLE': {
+          const model = payload.model || VEHICLE_CATALOG[4];
+          const giftedVeh = {
+            id: `veh_gift_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+            ...model,
+            plate: makePlate(
+              g.hqCityId || 'istanbul',
+              (g.vehicles?.length || 0) + 1,
+              g.plateLetters || 'ADM'
+            ),
+            condition: 100,
+            mileageKm: 0,
+            locationId: g.hqCityId || 'istanbul',
+            status: 'idle',
+            insured: true,
+            assignedDriverId: null,
+          };
+          return {
+            ...g,
+            vehicles: [giftedVeh, ...(g.vehicles || [])],
+            logs: [
+              {
+                id: `log_adm_veh_${Date.now()}`,
+                time: timeStr,
+                type: 'success',
+                text: `🚚 [YÖNETİCİ HEDİYESİ] Filonuza 0 km ${model.name} (${giftedVeh.plate}) hediye edildi!`,
+              },
+              ...(g.logs || []).slice(0, 49),
+            ],
+          };
+        }
+
+        default:
+          return g;
+      }
+    };
+
+    if (targetUsername === activeUsername) {
+      setGame((prev) => applyToGameState(prev));
+    } else {
+      setAccounts((prev) => {
+        const updated = prev.map((acc) =>
+          acc.username === targetUsername
+            ? { ...acc, gameState: applyToGameState(acc.gameState) }
+            : acc
+        );
+        try {
+          localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
+        } catch (e) {
+          // ignore
+        }
+        return updated;
+      });
     }
   };
 
@@ -1557,6 +1813,16 @@ export default function App() {
                 icon: Landmark,
                 badge: null,
               },
+              ...(game.isAdmin || activeUsername?.toLowerCase() === 'admin'
+                ? [
+                    {
+                      id: 'admin',
+                      label: 'Yönetici Paneli (GM)',
+                      icon: Crown,
+                      badge: 'ADMIN',
+                    },
+                  ]
+                : []),
             ].map((item) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
@@ -3080,6 +3346,17 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* SEKME 8: SÜPER YÖNETİCİ (GM / ADMIN) PANELİ */}
+          {activeTab === 'admin' &&
+            (game.isAdmin || activeUsername?.toLowerCase() === 'admin') && (
+              <AdminPanel
+                accounts={accounts}
+                activeUsername={activeUsername}
+                onAdminAction={handleAdminAction}
+                onSwitchToAccount={handleLoginAccount}
+              />
+            )}
 
           {/* SEKME 7: FİNANS, BANKA KREDİLERİ, AR-GE & SEVİYE YOL HARİTASI */}
           {activeTab === 'finance' && (
