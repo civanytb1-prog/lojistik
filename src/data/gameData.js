@@ -1009,3 +1009,192 @@ export const STARTER_PACKAGES = [
   },
 ];
 
+// Bölgesel Hava Durumu Tipleri ve Sürüş Etkileri
+export const WEATHER_TYPES = {
+  sunny: {
+    id: 'sunny',
+    name: 'Açık & Güneşli',
+    emoji: '☀️',
+    speedFactor: 1.0,
+    fuelFactor: 1.0,
+    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  },
+  rain: {
+    id: 'rain',
+    name: 'Sağanak Yağışlı',
+    emoji: '🌧️',
+    speedFactor: 0.9,
+    fuelFactor: 1.06,
+    badgeClass: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  },
+  fog: {
+    id: 'fog',
+    name: 'Yoğun Sis & Görüş Kaybı',
+    emoji: '🌫️',
+    speedFactor: 0.85,
+    fuelFactor: 1.04,
+    badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
+  },
+  snow: {
+    id: 'snow',
+    name: 'Kar Yağışı & Buzlanma',
+    emoji: '❄️',
+    speedFactor: 0.78,
+    fuelFactor: 1.12,
+    badgeClass: 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40',
+  },
+};
+
+export function generateRegionalWeather() {
+  const map = {};
+  REGIONS.forEach((reg) => {
+    const r = Math.random();
+    if (reg.id === 'Doğu Anadolu' || reg.id === 'İç Anadolu') {
+      map[reg.id] = r < 0.5 ? 'sunny' : r < 0.72 ? 'rain' : r < 0.86 ? 'fog' : 'snow';
+    } else if (reg.id === 'Karadeniz') {
+      map[reg.id] = r < 0.42 ? 'sunny' : r < 0.8 ? 'rain' : r < 0.92 ? 'fog' : 'snow';
+    } else {
+      map[reg.id] = r < 0.68 ? 'sunny' : r < 0.88 ? 'rain' : 'fog';
+    }
+  });
+  return map;
+}
+
+// Antrepo (Depo) Stok Yönetimi & Ticari Emtialar
+export const WAREHOUSE_COMMODITIES = [
+  {
+    id: 'food_grain',
+    name: 'Kuru Gıda & Bakliyat Paleti',
+    unit: 'Ton',
+    basePrice: 1200,
+    minPrice: 850,
+    maxPrice: 1750,
+    icon: '🌾',
+    description: 'Mersin, Konya ve Gaziantep hatlarında yüksek talep gören temel gıda stoğu.',
+  },
+  {
+    id: 'auto_parts',
+    name: 'Otomotiv & Makine Yedek Parça',
+    unit: 'Ton',
+    basePrice: 2800,
+    minPrice: 2100,
+    maxPrice: 3900,
+    icon: '⚙️',
+    description: 'Bursa, Kocaeli ve İstanbul sanayi tesisleri için yüksek değerli parça stoğu.',
+  },
+  {
+    id: 'textile_carpet',
+    name: 'İhracat Tekstil & Halı Ruloları',
+    unit: 'Ton',
+    basePrice: 1950,
+    minPrice: 1450,
+    maxPrice: 2700,
+    icon: '🧵',
+    description: 'Denizli, Gaziantep ve İzmir liman ihracatı için tekstil emtiası.',
+  },
+  {
+    id: 'cold_medical',
+    name: 'Soğuk Zincir Gıda & Medikal',
+    unit: 'Ton',
+    basePrice: 3400,
+    minPrice: 2500,
+    maxPrice: 4800,
+    icon: '❄️',
+    description: 'Antalya, İzmir ve Ankara arasında yüksek kâr marjlı soğuk antrepo ürünü.',
+  },
+  {
+    id: 'electronics',
+    name: 'Tüketici Elektroniği & Beyaz Eşya',
+    unit: 'Ton',
+    basePrice: 4200,
+    minPrice: 3200,
+    maxPrice: 5900,
+    icon: '📺',
+    description: 'Manisa, İstanbul ve büyükşehir dağıtım merkezleri için yüksek değerli stok.',
+  },
+];
+
+export function generateCommodityPrices() {
+  const prices = {};
+  WAREHOUSE_COMMODITIES.forEach((c) => {
+    const swing = 0.78 + Math.random() * 0.48;
+    prices[c.id] = Math.round((c.basePrice * swing) / 25) * 25;
+  });
+  return prices;
+}
+
+// Türkiye Lojistik Ligi Rakip Şirketler
+export const INITIAL_RIVAL_COMPANIES = [
+  {
+    id: 'riv_1',
+    name: 'Boğaziçi Global Lojistik A.Ş.',
+    hq: 'İstanbul',
+    region: 'Marmara',
+    fleetCount: 18,
+    reputation: 91,
+    netWorth: 2450000,
+    tonsMoved: 1420,
+  },
+  {
+    id: 'riv_2',
+    name: 'EgePort Konteyner & Nakliyat',
+    hq: 'İzmir',
+    region: 'Ege',
+    fleetCount: 12,
+    reputation: 84,
+    netWorth: 1480000,
+    tonsMoved: 890,
+  },
+  {
+    id: 'riv_3',
+    name: 'Başkent Ulusal Kargo A.Ş.',
+    hq: 'Ankara',
+    region: 'İç Anadolu',
+    fleetCount: 10,
+    reputation: 80,
+    netWorth: 1120000,
+    tonsMoved: 640,
+  },
+  {
+    id: 'riv_4',
+    name: 'Toroslar Frigo & Soğuk Zincir',
+    hq: 'Mersin',
+    region: 'Akdeniz',
+    fleetCount: 7,
+    reputation: 76,
+    netWorth: 780000,
+    tonsMoved: 410,
+  },
+  {
+    id: 'riv_5',
+    name: 'İpekyolu Güneydoğu Transit',
+    hq: 'Gaziantep',
+    region: 'Güneydoğu',
+    fleetCount: 5,
+    reputation: 71,
+    netWorth: 520000,
+    tonsMoved: 265,
+  },
+  {
+    id: 'riv_6',
+    name: 'Poyraz Karadeniz Ro-Ro Nakliyat',
+    hq: 'Samsun',
+    region: 'Karadeniz',
+    fleetCount: 4,
+    reputation: 67,
+    netWorth: 360000,
+    tonsMoved: 145,
+  },
+  {
+    id: 'riv_7',
+    name: 'Palandöken Ağır Nakliyat Ltd.',
+    hq: 'Erzurum',
+    region: 'Doğu Anadolu',
+    fleetCount: 3,
+    reputation: 63,
+    netWorth: 240000,
+    tonsMoved: 80,
+  },
+];
+
+

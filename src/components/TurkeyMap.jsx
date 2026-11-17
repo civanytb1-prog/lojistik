@@ -1,5 +1,5 @@
 import React from 'react';
-import { CITIES, HIGHWAY_LINKS } from '../data/gameData';
+import { CITIES, HIGHWAY_LINKS, WEATHER_TYPES } from '../data/gameData';
 import VehicleIcon, {
   MapSvgVehicleShape,
   getVehicleTypeShortLabel,
@@ -19,6 +19,7 @@ export default function TurkeyMap({
   vehicles,
   activeTrips,
   freightJobs,
+  regionalWeather = {},
   selectedCityId,
   onSelectCity,
   onSelectTrip,
@@ -222,6 +223,8 @@ export default function TurkeyMap({
               incomingTrips: [],
             };
             const firstIdle = stat.idleVehicles[0];
+            const wKey = regionalWeather[city.region] || 'sunny';
+            const wObj = WEATHER_TYPES[wKey] || WEATHER_TYPES.sunny;
 
             return (
               <g
@@ -263,7 +266,7 @@ export default function TurkeyMap({
                   strokeWidth="2"
                 />
 
-                {/* Şehir İsmi */}
+                {/* Şehir İsmi + Hava Durumu Emojisi */}
                 <text
                   y={hasDepot ? 18 : 15}
                   textAnchor="middle"
@@ -271,7 +274,7 @@ export default function TurkeyMap({
                   fontSize={isSelected ? '11.5' : '10'}
                   fontWeight={isUnlocked || isSelected ? '700' : '500'}
                 >
-                  {city.name}
+                  {city.name} {wKey !== 'sunny' ? wObj.emoji : ''}
                 </text>
 
                 {/* İLDE BEKLEYEN ARAÇLARIN HARİTA ÜZERİNDEKİ ARAÇ TÜRÜ İKONU VE SAYISI */}

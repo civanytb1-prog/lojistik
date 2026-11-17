@@ -7,6 +7,11 @@ import {
   COMPANY_UPGRADES,
   REGIONS,
   STARTER_PACKAGES,
+  WEATHER_TYPES,
+  generateRegionalWeather,
+  WAREHOUSE_COMMODITIES,
+  generateCommodityPrices,
+  INITIAL_RIVAL_COMPANIES,
   generateDriver,
   generateFreightJob,
   generateContractOffer,
@@ -61,6 +66,9 @@ import {
   LogOut,
   Lock,
   Filter,
+  Trophy,
+  CloudRain,
+  Boxes,
 } from 'lucide-react';
 
 const ACCOUNTS_STORAGE_KEY = 'anadolu_lojistik_accounts_v2';
@@ -213,8 +221,18 @@ function createInitialState({
     fuelTankLiters: startingFuel,
     unlockedCities,
     depots: {
-      [hqCityId]: { level: 1, capacityTons: 100, dailyIncome: 1350 },
+      [hqCityId]: { level: 1, capacityTons: 150, dailyIncome: 1350 },
     },
+    regionalWeather: generateRegionalWeather(),
+    warehouseInventory: {
+      food_grain: 10,
+      auto_parts: 0,
+      textile_carpet: 0,
+      cold_medical: 0,
+      electronics: 0,
+    },
+    commodityPrices: generateCommodityPrices(),
+    rivals: INITIAL_RIVAL_COMPANIES,
     upgrades: [],
     vehicles,
     usedVehicles: generateUsedVehicles(1),
@@ -1141,6 +1159,120 @@ export default function App() {
     }));
   };
 
+  // Antrepo Toplam Stok Kapasitesi ve Mevcut Stok Miktarı
+  const totalWarehouseCapacity = Object.values(game.depots || {}).reduce(
+    (sum, d) => sum + (d.capacityTons || 150),
+    0
+  );
+  const currentWarehouseUsed = Object.values(game.warehouseInventory || {}).reduce(
+    (sum, qty) => sum + (qty || 0),
+    0
+  );
+
+  // Antrepoya Ticari Emtia Alımı (Stoklama)
+  const buyWarehouseCommodity = (comm, tons) => {
+    const spaceLeft = totalWarehouseCapacity - currentWarehouseUsed;
+    const actualTons = Math.min(tons, spaceLeft);
+    if (actualTons <= 0) return;
+    const unitPrice = (game.commodityPrices && game.commodityPrices[comm.id]) || comm.basePrice;
+    const totalCost = Math.round(actualTons * unitPrice);
+    if (game.cash < totalCost) return;
+
+    setGame((prev) => ({
+      ...prev,
+      cash: prev.cash - totalCost,
+      warehouseInventory: {
+        ...(prev.warehouseInventory || {}),
+        [comm.id]: ((prev.warehouseInventory && prev.warehouseInventory[comm.id]) || 0) + actualTons,
+      },
+      ledger: [
+        {
+          id: `led_w_buy_${Date.now()}`,
+          day: prev.day,
+          title: `Antrepo Emtia Alımı: ${actualTons}t ${comm.name}`,
+          amount: -totalCost,
+          type: 'expense',
+        },
+        ...prev.ledger.slice(0, 59),
+      ],
+    }));
+  };
+
+  // Antrepodaki Ticari Emtiayı Piyasaya Satma
+  const sellWarehouseCommodity = (comm, tons) => {
+    const ownedTons = (game.warehouseInventory && game.warehouseInventory[comm.id]) || 0;
+    const actualTons = Math.min(tons, ownedTons);
+    if (actualTons <= 0) return;
+    const unitPrice = (game.commodityPrices && game.commodityPrices[comm.id]) || comm.basePrice;
+    const revenue = Math.round(actualTons * unitPrice);
+
+    setGame((prev) => ({
+      ...prev,
+      cash: prev.cash + revenue,
+      xp: prev.xp + Math.round(actualTons * 4),
+      warehouseInventory: {
+        ...(prev.warehouseInventory || {}),
+        [comm.id]: ownedTons - actualTons,
+      },
+      ledger: [
+        {
+          id: `led_w_sell_${Date.now()}`,
+          day: prev.day,
+          title: `Antrepo Emtia Satışı: ${actualTons}t ${comm.name}`,
+          amount: revenue,
+          type: 'income',
+        },
+        ...prev.ledger.slice(0, 59),
+      ],
+      logs: [
+        {
+          id: `log_wsell_${Date.now()}`,
+          time: `Gün ${prev.day} • ${String(prev.hour).padStart(2, '0')}:00`,
+          type: 'success',
+          text: `📦 Antrepodan ${actualTons} ton ${comm.name} satıldı (+₺${revenue.toLocaleString('tr-TR')}).`,
+        },
+        ...prev.logs.slice(0, 49),
+      ],
+    }));
+  };
+
+  // Şirket Net Değeri ve Türkiye Ligi Sıralaması
+  const leagueStandings = useMemo(() => {
+    const fleetValue = game.vehicles.reduce((s, v) => s + Math.round(v.price * (v.condition / 100) * 0.8), 0);
+    const depotValue = Object.values(game.depots || {}).reduce((s, d) => s + d.level * 120000, 0);
+    const stockValue = WAREHOUSE_COMMODITIES.reduce(
+      (s, c) =>
+        s +
+        ((game.warehouseInventory && game.warehouseInventory[c.id]) || 0) *
+          ((game.commodityPrices && game.commodityPrices[c.id]) || c.basePrice),
+      0
+    );
+    const debt = game.loans.reduce((s, l) => s + l.remainingAmount, 0);
+    const playerNetWorth = Math.max(10000, game.cash + fleetValue + depotValue + stockValue - debt);
+
+    const hqCityObj = CITIES.find((c) => c.id === game.hqCityId);
+    const allCompanies = [
+      ...(game.rivals || INITIAL_RIVAL_COMPANIES),
+      {
+        id: 'player_company',
+        isPlayer: true,
+        name: game.companyName,
+        hq: hqCityObj?.name || 'İstanbul',
+        region: game.regionId || 'Marmara',
+        fleetCount: game.vehicles.length,
+        reputation: game.reputation,
+        netWorth: playerNetWorth,
+        tonsMoved: Math.round(game.stats.totalTonsMoved),
+      },
+    ];
+    return allCompanies.sort((a, b) => b.netWorth - a.netWorth);
+  }, [game]);
+
+  const playerRank = leagueStandings.findIndex((c) => c.isPlayer) + 1;
+  const hqWeatherKey =
+    (game.regionalWeather && game.regionalWeather[game.regionId || 'Marmara']) || 'sunny';
+  const hqWeather = WEATHER_TYPES[hqWeatherKey] || WEATHER_TYPES.sunny;
+
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100 select-none">
       {/* ÜST KOMUTA BARI (TOP HUD) */}
@@ -1249,6 +1381,22 @@ export default function App() {
               </div>
               <div className="text-xs font-mono text-orange-300">
                 Depo: {game.fuelTankLiters.toLocaleString('tr-TR')} L
+              </div>
+            </div>
+          </div>
+
+          {/* Bölgesel Hava Durumu Göstergesi */}
+          <div
+            className="bg-slate-950/90 border border-slate-800 px-3 py-1.5 rounded-xl hidden xl:flex items-center gap-2"
+            title="Bölgesel hava durumu araçların sürüş hızını ve yakıt tüketimini etkiler"
+          >
+            <span className="text-base">{hqWeather.emoji}</span>
+            <div>
+              <div className="text-[10px] uppercase text-slate-400 font-semibold">
+                Hava ({game.regionId || 'Marmara'})
+              </div>
+              <div className="text-xs font-bold text-slate-200">
+                {hqWeather.name} ({Math.round(hqWeather.speedFactor * 100)}% Hız)
               </div>
             </div>
           </div>
@@ -1393,9 +1541,15 @@ export default function App() {
               },
               {
                 id: 'network',
-                label: 'Şubeler, Depo & Yakıt',
+                label: 'Şubeler, Antrepo & Stok',
                 icon: Building2,
                 badge: `${game.unlockedCities.length}/${CITIES.length}`,
+              },
+              {
+                id: 'league',
+                label: 'Türkiye Lojistik Ligi',
+                icon: Trophy,
+                badge: `#${playerRank}`,
               },
               {
                 id: 'finance',
@@ -1490,6 +1644,7 @@ export default function App() {
                     vehicles={game.vehicles}
                     activeTrips={game.activeTrips}
                     freightJobs={game.freightJobs}
+                    regionalWeather={game.regionalWeather || {}}
                     selectedCityId={selectedCityId}
                     onSelectCity={setSelectedCityId}
                     selectedTripId={selectedTripId}
@@ -2612,6 +2767,104 @@ export default function App() {
                 </div>
               </div>
 
+              {/* DETAYLI ANTREPO STOK & TİCARİ EMTİA BORSASI */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <Boxes className="w-5 h-5 text-emerald-400" />
+                      Antrepo Stok Yönetimi & Ticari Emtia Borsası
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Emtia fiyatları düşükken antrepolarınıza mal stoklayın, piyasa fiyatları yükseldiğinde yüksek kârla satın!
+                    </p>
+                  </div>
+                  <div className="px-3.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs">
+                    Antrepo Doluluğu:{' '}
+                    <strong className="text-emerald-400">
+                      {currentWarehouseUsed} / {totalWarehouseCapacity} Ton
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                  {WAREHOUSE_COMMODITIES.map((comm) => {
+                    const curPrice =
+                      (game.commodityPrices && game.commodityPrices[comm.id]) ||
+                      comm.basePrice;
+                    const diffPct = Math.round(
+                      ((curPrice - comm.basePrice) / comm.basePrice) * 100
+                    );
+                    const storedTons =
+                      (game.warehouseInventory &&
+                        game.warehouseInventory[comm.id]) ||
+                      0;
+
+                    return (
+                      <div
+                        key={comm.id}
+                        className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between gap-3"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                              <span>{comm.icon}</span>
+                              {comm.name}
+                            </span>
+                            <span
+                              className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                                diffPct < -5
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : diffPct > 8
+                                  ? 'bg-amber-500/20 text-amber-300'
+                                  : 'bg-slate-800 text-slate-300'
+                              }`}
+                            >
+                              {diffPct < -5
+                                ? `📉 Ucuz (%${diffPct})`
+                                : diffPct > 8
+                                ? `📈 Yüksek (+%${diffPct})`
+                                : `Normal (%${diffPct})`}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            {comm.description}
+                          </p>
+                          <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-900 text-xs font-mono">
+                            <span className="text-slate-300">
+                              Borsa: <strong className="text-white">₺{curPrice.toLocaleString('tr-TR')}/t</strong>
+                            </span>
+                            <span className="text-emerald-400 font-bold">
+                              Stok: {storedTons} Ton
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <button
+                            disabled={
+                              game.cash < curPrice * 10 ||
+                              currentWarehouseUsed + 10 > totalWarehouseCapacity
+                            }
+                            onClick={() => buyWarehouseCommodity(comm, 10)}
+                            className="py-1.5 px-2.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 disabled:opacity-35 text-emerald-300 font-bold text-xs"
+                          >
+                            +10t Stokla (₺{(curPrice * 10).toLocaleString('tr-TR')})
+                          </button>
+                          <button
+                            disabled={storedTons <= 0}
+                            onClick={() => sellWarehouseCommodity(comm, storedTons)}
+                            className="py-1.5 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-35 text-slate-950 font-extrabold text-xs"
+                          >
+                            Tümünü Sat (+₺{(storedTons * curPrice).toLocaleString('tr-TR')})
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Türkiye Şehir Şubeleri ve Antrepo Yatırımları */}
               <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5">
                 <h2 className="text-base font-bold text-white mb-1">
@@ -2697,6 +2950,128 @@ export default function App() {
                               ★ Maksimum Mega Lojistik Üssü
                             </div>
                           )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SEKME: TÜRKİYE LOJİSTİK LİGİ SIRALAMASI & BÖLGESEL HAVA DURUMU */}
+          {activeTab === 'league' && (
+            <div className="space-y-6">
+              {/* 7 Bölge Canlı Hava Durumu ve Yol Koşulları */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5">
+                <h2 className="text-base font-bold text-white flex items-center gap-2 mb-1">
+                  <CloudRain className="w-5 h-5 text-sky-400" />
+                  Türkiye 7 Bölge Canlı Meteoroloji & Yol Durumu Raporu
+                </h2>
+                <p className="text-xs text-slate-400 mb-4">
+                  Bölgelerdeki yağmur, sis ve kar yağışı o bölgede seyahat eden araçlarınızın ortalama hızını ve yakıt tüketimini doğrudan etkiler.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                  {REGIONS.map((reg) => {
+                    const wKey =
+                      (game.regionalWeather && game.regionalWeather[reg.id]) ||
+                      'sunny';
+                    const w = WEATHER_TYPES[wKey] || WEATHER_TYPES.sunny;
+                    return (
+                      <div
+                        key={reg.id}
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between gap-2"
+                      >
+                        <div className="text-xs font-bold text-white">
+                          {reg.id}
+                        </div>
+                        <div className="text-2xl my-0.5">{w.emoji}</div>
+                        <div>
+                          <div className="text-[11px] font-semibold text-slate-200">
+                            {w.name}
+                          </div>
+                          <div className="text-[10px] font-mono text-amber-300 mt-0.5">
+                            Hız: %{Math.round(w.speedFactor * 100)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Türkiye Lojistik Şirketleri Sıralaması */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-400" />
+                      Türkiye Ulusal Lojistik Devleri Sıralaması (Sıranız: #{playerRank})
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Net şirket değerinizi (Nakit + Filo + Antrepolar + Emtia Stoğu) artırarak rakiplerinizi geride bırakın ve sektör lideri olun!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  {leagueStandings.map((comp, index) => {
+                    const rank = index + 1;
+                    return (
+                      <div
+                        key={comp.id}
+                        className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4 transition ${
+                          comp.isPlayer
+                            ? 'bg-gradient-to-r from-amber-500/20 via-orange-500/10 to-slate-950 border-amber-400 shadow-lg'
+                            : 'bg-slate-950 border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <div
+                            className={`w-9 h-9 rounded-xl font-mono font-extrabold text-sm flex items-center justify-center ${
+                              rank === 1
+                                ? 'bg-amber-400 text-slate-950'
+                                : rank === 2
+                                ? 'bg-slate-300 text-slate-950'
+                                : rank === 3
+                                ? 'bg-amber-700 text-white'
+                                : 'bg-slate-800 text-slate-300'
+                            }`}
+                          >
+                            #{rank}
+                          </div>
+                          <div>
+                            <div className="text-sm font-extrabold text-white flex items-center gap-2">
+                              {comp.name}
+                              {comp.isPlayer && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black">
+                                  SİZİN ŞİRKETİNİZ
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              📍 Merkez: {comp.hq} ({comp.region}) • İtibar: %{comp.reputation}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-6 font-mono text-xs">
+                          <div className="text-right">
+                            <div className="text-[10px] text-slate-400">Filo Büyüklüğü</div>
+                            <div className="text-sky-400 font-bold">{comp.fleetCount} Araç</div>
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <div className="text-[10px] text-slate-400">Taşınan Yük</div>
+                            <div className="text-slate-200 font-bold">
+                              {comp.tonsMoved.toLocaleString('tr-TR')} Ton
+                            </div>
+                          </div>
+                          <div className="text-right min-w-[120px]">
+                            <div className="text-[10px] text-slate-400">Şirket Net Değeri</div>
+                            <div className="text-sm font-extrabold text-emerald-400">
+                              ₺{comp.netWorth.toLocaleString('tr-TR')}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -2986,8 +3361,70 @@ function simulateOneHour(prev, nextId, minutesPortion = 60) {
       continue;
     }
 
-    const stepKm = (trip.speedKmh * minutesPortion) / 60;
+    const destCityObj = CITIES.find((c) => c.id === trip.destinationId);
+    const regionWeatherKey =
+      (prev.regionalWeather &&
+        destCityObj &&
+        prev.regionalWeather[destCityObj.region]) ||
+      'sunny';
+    const weatherSpeedFactor =
+      (WEATHER_TYPES[regionWeatherKey] &&
+        WEATHER_TYPES[regionWeatherKey].speedFactor) ||
+      1.0;
+
+    const stepKm = (trip.speedKmh * weatherSpeedFactor * minutesPortion) / 60;
     const newDist = +(trip.distanceCoveredKm + stepKm).toFixed(1);
+
+    // YOLDA RASTGELE OLAYLAR & KANTAR / TAKOGRAF DENETİMLERİ (%12 olasılıkla saat başı)
+    if (newDist < trip.totalDistanceKm - 5 && Math.random() < 0.12) {
+      const evRoll = Math.random();
+      const vehObj = vehicles.find((v) => v.id === trip.vehicleId);
+      if (evRoll < 0.45) {
+        // Karayolları Kantar & Takograf Denetim İstasyonu
+        xp += 25;
+        reputation = Math.min(100, reputation + 1);
+        logs.unshift({
+          id: `log_insp_${nextId()}`,
+          time: timeLabel,
+          type: 'success',
+          text: `⚖️ [Kantar & Takograf Denetimi] ${trip.vehiclePlate} (${trip.driverName}), Karayolları denetim istasyonundan kusursuz geçti! (+25 XP, +1 İtibar)`,
+        });
+      } else if (evRoll < 0.75 && vehObj && vehObj.condition < 80) {
+        // Lastik / Mekanik Yol Yardım Olayı
+        if (vehObj.insured) {
+          logs.unshift({
+            id: `log_ins_save_${nextId()}`,
+            time: timeLabel,
+            type: 'info',
+            text: `🛡️ [Kasko Koruması] ${trip.vehiclePlate} yolda lastik/hortum arızası yaşadı; Kasko sigortanız ₺3.200 yol yardım giderini karşıladı (₺0 Gider).`,
+          });
+        } else {
+          const roadRepair = 2800;
+          cash -= roadRepair;
+          ledger.unshift({
+            id: `led_road_${nextId()}`,
+            day: nextDay,
+            title: `Acil Yol Yardım Gideri (${trip.vehiclePlate} - Kaskosuz)`,
+            amount: -roadRepair,
+            type: 'expense',
+          });
+          logs.unshift({
+            id: `log_road_${nextId()}`,
+            time: timeLabel,
+            type: 'warn',
+            text: `🛞 [Yol Arızası] Kaskosuz ${trip.vehiclePlate} yolda arıza yaptı! Acil mobil servis için -₺${roadRepair.toLocaleString('tr-TR')} ödendi.`,
+          });
+        }
+      } else if (regionWeatherKey === 'snow' || regionWeatherKey === 'rain') {
+        logs.unshift({
+          id: `log_wx_${nextId()}`,
+          time: timeLabel,
+          type: 'info',
+          text: `${WEATHER_TYPES[regionWeatherKey].emoji} [Hava Muhalefeti] ${trip.vehiclePlate}, ${destCityObj?.region} bölgesinde ${WEATHER_TYPES[regionWeatherKey].name} nedeniyle güvenli hızda ilerliyor.`,
+        });
+      }
+    }
+
     if (newDist >= trip.totalDistanceKm - 0.5) {
       // TESLİMAT TAMAMLANDI!
       const elapsedHours = nowTotalHours - trip.startedTotalHours;
@@ -3321,8 +3758,25 @@ function simulateOneHour(prev, nextId, minutesPortion = 60) {
   let contractOffers = prev.contractOffers;
   let candidateDrivers = prev.candidateDrivers;
   let loans = prev.loans;
+  let regionalWeather =
+    nextHour % 6 === 0
+      ? generateRegionalWeather()
+      : prev.regionalWeather || generateRegionalWeather();
+  let commodityPrices = prev.commodityPrices || generateCommodityPrices();
+  let rivals = prev.rivals || INITIAL_RIVAL_COMPANIES;
 
   if (isNewDay) {
+    commodityPrices = generateCommodityPrices();
+    rivals = rivals.map((r) => {
+      const growth = Math.round((15000 + Math.random() * 45000) / 500) * 500;
+      const addFleet = Math.random() < 0.18 ? 1 : 0;
+      return {
+        ...r,
+        netWorth: r.netWorth + growth,
+        fleetCount: r.fleetCount + addFleet,
+        tonsMoved: r.tonsMoved + Math.round(12 + Math.random() * 28),
+      };
+    });
     const isNewWeek = nextDay % 7 === 1;
     drivers = drivers.map((d) => ({
       ...d,
@@ -3417,6 +3871,9 @@ function simulateOneHour(prev, nextId, minutesPortion = 60) {
     reputation,
     fuelPrice,
     fuelTankLiters,
+    regionalWeather,
+    commodityPrices,
+    rivals,
     vehicles,
     usedVehicles,
     drivers,
