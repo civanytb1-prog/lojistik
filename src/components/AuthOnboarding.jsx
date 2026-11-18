@@ -22,6 +22,7 @@ export default function AuthOnboarding({
   onRegisterAccount,
   onDeleteAccount,
   onCancelIfInGame,
+  onLogout,
 }) {
   // Ana sayfa her zaman "login" (Giriş Ekranı) ile başlar
   const [mode, setMode] = useState('login');
@@ -176,6 +177,15 @@ export default function AuthOnboarding({
               className="px-3 py-2 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800"
             >
               Oyuna Dön
+            </button>
+          )}
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="px-3 py-2 rounded-xl border border-rose-500/40 bg-rose-500/15 text-xs font-bold text-rose-300 hover:bg-rose-500/25"
+            >
+              Çıkış Yap
             </button>
           )}
         </div>

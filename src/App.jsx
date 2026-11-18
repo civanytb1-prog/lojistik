@@ -449,9 +449,33 @@ export default function App() {
     return list;
   });
 
-  // Ana sayfa açıldığında her zaman Giriş Yap (Login) ekranı ile karşıla
-  const [activeUsername, setActiveUsername] = useState(null);
-  const [game, setGame] = useState(null);
+  // Sayfa yenilendiğinde aktif oturumu localStorage'dan otomatik geri yükle
+  const [activeUsername, setActiveUsername] = useState(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_USER_KEY);
+      if (saved && accounts.some((a) => a.username === saved)) {
+        return saved;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  });
+  const [game, setGame] = useState(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_USER_KEY);
+      const found = saved ? accounts.find((a) => a.username === saved) : null;
+      if (found?.gameState) {
+        return {
+          ...found.gameState,
+          isAdmin: Boolean(found.isAdmin || found.gameState?.isAdmin),
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  });
   const [impersonatedByAdmin, setImpersonatedByAdmin] = useState(false);
 
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -879,6 +903,18 @@ export default function App() {
     onlyCompatibleJobs,
   ]);
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem(ACTIVE_USER_KEY);
+    } catch (e) {
+      // ignore
+    }
+    setActiveUsername(null);
+    setGame(null);
+    setImpersonatedByAdmin(false);
+    setShowAuthModal(false);
+  };
+
   // Eğer aktif oyuncu yoksa veya Oyuncu/Şirket Değiştir ekranı açıldıysa AuthOnboarding göster
   if (!game || showAuthModal) {
     return (
@@ -888,6 +924,7 @@ export default function App() {
         onRegisterAccount={handleRegisterAccount}
         onDeleteAccount={handleDeleteAccount}
         onCancelIfInGame={game ? () => setShowAuthModal(false) : null}
+        onLogout={game ? handleLogout : null}
       />
     );
   }
