@@ -1,5 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CITIES, HIGHWAY_LINKS, WEATHER_TYPES } from '../data/gameData';
+import {
+  PROVINCES_81,
+  REGION_VIEWBOXES,
+  MAP_WIDTH,
+  MAP_HEIGHT,
+} from '../data/turkeyProvinces81';
 import VehicleIcon, {
   MapSvgVehicleShape,
   getVehicleTypeShortLabel,
@@ -11,63 +17,22 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-const BASE_W = 1024;
-const BASE_H = 557;
+const BASE_W = MAP_WIDTH;
+const BASE_H = MAP_HEIGHT;
 
-// Tüm Türkiye + 7 Coğrafi Bölge (Kamera Odak Alanı & Bölge Harita Kesiti)
 const REGION_FILTERS = [
-  {
-    id: 'all',
-    label: 'Tüm Türkiye',
-    vb: { x: 0, y: 0, w: BASE_W, h: BASE_H },
-    clipPolygon: null,
-  },
-  {
-    id: 'Marmara',
-    label: 'Marmara',
-    vb: { x: 0, y: 0, w: 340, h: 215 },
-    clipPolygon: '0,0 325,0 325,115 265,175 185,195 0,195',
-  },
-  {
-    id: 'Ege',
-    label: 'Ege',
-    vb: { x: 15, y: 155, w: 300, h: 245 },
-    clipPolygon: '10,165 270,165 280,365 180,395 10,395',
-  },
-  {
-    id: 'İç Anadolu',
-    label: 'İç Anadolu',
-    vb: { x: 225, y: 95, w: 455, h: 285 },
-    clipPolygon: '235,105 660,105 660,295 470,355 245,345',
-  },
-  {
-    id: 'Akdeniz',
-    label: 'Akdeniz',
-    vb: { x: 195, y: 275, w: 430, h: 205 },
-    clipPolygon: '195,295 585,275 595,465 195,465',
-  },
-  {
-    id: 'Karadeniz',
-    label: 'Karadeniz',
-    vb: { x: 265, y: 5, w: 625, h: 175 },
-    clipPolygon: '270,0 885,0 885,155 270,155',
-  },
-  {
-    id: 'Doğu Anadolu',
-    label: 'Doğu Anadolu',
-    vb: { x: 645, y: 65, w: 379, h: 280 },
-    clipPolygon: '655,65 1024,65 1024,335 655,335',
-  },
-  {
-    id: 'Güneydoğu',
-    label: 'Güneydoğu',
-    vb: { x: 540, y: 245, w: 420, h: 185 },
-    clipPolygon: '545,250 955,250 955,425 545,425',
-  },
+  { id: 'all', label: 'Tüm Türkiye' },
+  { id: 'Marmara', label: 'Marmara' },
+  { id: 'Ege', label: 'Ege' },
+  { id: 'İç Anadolu', label: 'İç Anadolu' },
+  { id: 'Akdeniz', label: 'Akdeniz' },
+  { id: 'Karadeniz', label: 'Karadeniz' },
+  { id: 'Doğu Anadolu', label: 'Doğu Anadolu' },
+  { id: 'Güneydoğu', label: 'Güneydoğu' },
 ];
 
 function clampViewBox(vb) {
-  const w = Math.max(180, Math.min(BASE_W, vb.w));
+  const w = Math.max(140, Math.min(BASE_W, vb.w));
   const h = (w / BASE_W) * BASE_H;
   const x = Math.max(-40, Math.min(BASE_W - w + 40, vb.x));
   const y = Math.max(-40, Math.min(BASE_H - h + 40, vb.y));
@@ -88,20 +53,33 @@ export default function TurkeyMap({
   onPlanNextLoadForCity,
 }) {
   const [activeRegion, setActiveRegion] = useState('all');
-  const [vb, setVb] = useState(REGION_FILTERS[0].vb);
+  const [vb, setVb] = useState(REGION_VIEWBOXES.all);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef(null);
   const svgRef = useRef(null);
   const dragRef = useRef(null);
 
-  const currentRegionObj =
-    REGION_FILTERS.find((r) => r.id === activeRegion) || REGION_FILTERS[0];
   const zoomFactor = +(BASE_W / vb.w).toFixed(1);
 
   const applyRegion = (regionId) => {
-    const found = REGION_FILTERS.find((r) => r.id === regionId) || REGION_FILTERS[0];
-    setActiveRegion(found.id);
-    setVb(found.vb);
+    setActiveRegion(regionId);
+    const targetVb = REGION_VIEWBOXES[regionId] || REGION_VIEWBOXES.all;
+    // Seçili bölgeyi harita oranına ortala
+    const targetAspect = BASE_W / BASE_H;
+    let w = targetVb.w;
+    let h = targetVb.h;
+    if (w / h > targetAspect) {
+      h = w / targetAspect;
+    } else {
+      w = h * targetAspect;
+    }
+    const cx = targetVb.x + targetVb.w / 2;
+    const cy = targetVb.y + targetVb.h / 2;
+    setVb(
+      regionId === 'all'
+        ? REGION_VIEWBOXES.all
+        : { x: cx - w / 2, y: cy - h / 2, w, h }
+    );
   };
 
   const zoomBy = (factor, centerX, centerY) => {
@@ -224,10 +202,20 @@ export default function TurkeyMap({
     return stats;
   }, [freightJobs, vehicles, activeTrips]);
 
+  const visibleProvinces = React.useMemo(() => {
+    if (activeRegion === 'all') return PROVINCES_81;
+    return PROVINCES_81.filter((p) => p.region === activeRegion);
+  }, [activeRegion]);
+
   const visibleCities = React.useMemo(() => {
     if (activeRegion === 'all') return CITIES;
     return CITIES.filter((c) => c.region === activeRegion);
   }, [activeRegion]);
+
+  const hubCityNames = React.useMemo(
+    () => new Set(CITIES.map((c) => c.name)),
+    []
+  );
 
   const currentViewBox = `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`;
 
@@ -322,27 +310,49 @@ export default function TurkeyMap({
           className="w-full h-full object-contain"
           preserveAspectRatio="xMidYMid meet"
         >
-          <defs>
-            {currentRegionObj.clipPolygon && (
-              <clipPath id="activeRegionClip">
-                <polygon points={currentRegionObj.clipPolygon} />
-              </clipPath>
-            )}
-          </defs>
+          {/* GERÇEK 81 İL TAM VEKTÖR SINIRLI HARİTA (Bölge Seçilince Sadece O Bölgenin İlleri Çizilir) */}
+          <g>
+            {visibleProvinces.map((prov) => {
+              const isHub = hubCityNames.has(prov.name);
+              const isSelectedHub =
+                selectedCityId &&
+                CITIES.find((c) => c.id === selectedCityId)?.name === prov.name;
 
-          {/* GERÇEK 81 İL SINIRLI TÜRKİYE HARİTASI (Sadece Harita, Arka Plan/Deniz Yok) */}
-          <image
-            href={`${import.meta.env.BASE_URL}images/turkey-81-provinces.png`}
-            x="0"
-            y="0"
-            width={BASE_W}
-            height={BASE_H}
-            preserveAspectRatio="none"
-            clipPath={
-              currentRegionObj.clipPolygon ? 'url(#activeRegionClip)' : undefined
-            }
-            opacity="0.95"
-          />
+              return (
+                <g key={prov.name}>
+                  <path
+                    d={prov.path}
+                    fill={
+                      isSelectedHub
+                        ? '#1e3a5f'
+                        : isHub
+                        ? '#132238'
+                        : '#0d1829'
+                    }
+                    stroke={isSelectedHub ? '#f59e0b' : '#475569'}
+                    strokeWidth={activeRegion === 'all' ? '0.9' : '0.65'}
+                    strokeLinejoin="round"
+                    className="transition-colors duration-200 hover:fill-[#1a2e4a]"
+                  />
+                  {/* Lojistik merkezi olmayan diğer illerin isimlerini göster */}
+                  {!isHub && (
+                    <text
+                      x={prov.cx}
+                      y={prov.cy}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fill="#64748b"
+                      fontSize={activeRegion === 'all' ? '5.5' : '4.5'}
+                      fontWeight="600"
+                      className="pointer-events-none select-none"
+                    >
+                      {prov.name}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </g>
 
           {/* Karayolu ve Otoyol Ağları */}
           {HIGHWAY_LINKS.map(([fromId, toId], idx) => {
