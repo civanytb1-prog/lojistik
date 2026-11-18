@@ -212,6 +212,24 @@ export default function TurkeyMap({
     return CITIES.filter((c) => c.region === activeRegion);
   }, [activeRegion]);
 
+  const visibleTrips = React.useMemo(() => {
+    if (activeRegion === 'all') return activeTrips;
+    return activeTrips.filter((t) => {
+      const origin = cityMap[t.originId];
+      const dest = cityMap[t.destinationId];
+      return origin?.region === activeRegion && dest?.region === activeRegion;
+    });
+  }, [activeRegion, activeTrips, cityMap]);
+
+  const visibleIdleCount = React.useMemo(() => {
+    if (activeRegion === 'all') {
+      return vehicles.filter((v) => v.status === 'idle').length;
+    }
+    return vehicles.filter(
+      (v) => v.status === 'idle' && cityMap[v.locationId]?.region === activeRegion
+    ).length;
+  }, [activeRegion, vehicles, cityMap]);
+
   const hubCityNames = React.useMemo(
     () => new Set(CITIES.map((c) => c.name)),
     []
@@ -229,8 +247,7 @@ export default function TurkeyMap({
             TÜRKİYE 81 İL & CANLI FİLO HARİTASI
           </span>
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono">
-            {activeTrips.length} Yolda •{' '}
-            {vehicles.filter((v) => v.status === 'idle').length} İlde Bekliyor
+            {visibleTrips.length} Yolda • {visibleIdleCount} İlde Bekliyor
           </span>
         </div>
 
@@ -396,7 +413,7 @@ export default function TurkeyMap({
           })}
 
           {/* Aktif Seferlerin Rota Çizgileri ve Varsa Planlanmış Sonraki (Dönüş) Rota Çizgisi */}
-          {activeTrips.map((trip) => {
+          {visibleTrips.map((trip) => {
             const origin = cityMap[trip.originId];
             const dest = cityMap[trip.destinationId];
             if (!origin || !dest) return null;
@@ -404,6 +421,9 @@ export default function TurkeyMap({
             const queuedDest = trip.queuedNextTrip
               ? cityMap[trip.queuedNextTrip.destinationId]
               : null;
+            const showQueued =
+              queuedDest &&
+              (activeRegion === 'all' || queuedDest.region === activeRegion);
 
             return (
               <g key={`route_${trip.id}`}>
@@ -417,7 +437,7 @@ export default function TurkeyMap({
                   strokeDasharray="6 4"
                   strokeOpacity="0.9"
                 />
-                {queuedDest && (
+                {showQueued && (
                   <line
                     x1={dest.x}
                     y1={dest.y}
@@ -565,7 +585,7 @@ export default function TurkeyMap({
           })}
 
           {/* Yoldaki Canlı Araçlar */}
-          {activeTrips.map((trip) => {
+          {visibleTrips.map((trip) => {
             const origin = cityMap[trip.originId];
             const dest = cityMap[trip.destinationId];
             if (!origin || !dest) return null;
