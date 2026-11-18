@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CITIES, HIGHWAY_LINKS, WEATHER_TYPES } from '../data/gameData';
 import VehicleIcon, {
   MapSvgVehicleShape,
@@ -14,15 +14,60 @@ import {
 const BASE_W = 1024;
 const BASE_H = 557;
 
-const CAMERA_PRESETS = {
-  all: { label: 'Tüm Türkiye', vb: { x: 0, y: 0, w: BASE_W, h: BASE_H } },
-  west: { label: 'Marmara & Ege', vb: { x: 10, y: 18, w: 410, h: 350 } },
-  central: { label: 'İç Anadolu & Akdeniz', vb: { x: 220, y: 95, w: 460, h: 350 } },
-  east: { label: 'Karadeniz & Doğu', vb: { x: 480, y: 15, w: 530, h: 380 } },
-};
+// Tüm Türkiye + 7 Coğrafi Bölge (Kamera Odak Alanı & Bölge Harita Kesiti)
+const REGION_FILTERS = [
+  {
+    id: 'all',
+    label: 'Tüm Türkiye',
+    vb: { x: 0, y: 0, w: BASE_W, h: BASE_H },
+    clipPolygon: null,
+  },
+  {
+    id: 'Marmara',
+    label: 'Marmara',
+    vb: { x: 0, y: 0, w: 340, h: 215 },
+    clipPolygon: '0,0 325,0 325,115 265,175 185,195 0,195',
+  },
+  {
+    id: 'Ege',
+    label: 'Ege',
+    vb: { x: 15, y: 155, w: 300, h: 245 },
+    clipPolygon: '10,165 270,165 280,365 180,395 10,395',
+  },
+  {
+    id: 'İç Anadolu',
+    label: 'İç Anadolu',
+    vb: { x: 225, y: 95, w: 455, h: 285 },
+    clipPolygon: '235,105 660,105 660,295 470,355 245,345',
+  },
+  {
+    id: 'Akdeniz',
+    label: 'Akdeniz',
+    vb: { x: 195, y: 275, w: 430, h: 205 },
+    clipPolygon: '195,295 585,275 595,465 195,465',
+  },
+  {
+    id: 'Karadeniz',
+    label: 'Karadeniz',
+    vb: { x: 265, y: 5, w: 625, h: 175 },
+    clipPolygon: '270,0 885,0 885,155 270,155',
+  },
+  {
+    id: 'Doğu Anadolu',
+    label: 'Doğu Anadolu',
+    vb: { x: 645, y: 65, w: 379, h: 280 },
+    clipPolygon: '655,65 1024,65 1024,335 655,335',
+  },
+  {
+    id: 'Güneydoğu',
+    label: 'Güneydoğu',
+    vb: { x: 540, y: 245, w: 420, h: 185 },
+    clipPolygon: '545,250 955,250 955,425 545,425',
+  },
+];
 
 function clampViewBox(vb) {
-  const w = Math.max(200, Math.min(BASE_W, vb.w));
+  const w = Math.max(180, Math.min(BASE_W, vb.w));
   const h = (w / BASE_W) * BASE_H;
   const x = Math.max(-40, Math.min(BASE_W - w + 40, vb.x));
   const y = Math.max(-40, Math.min(BASE_H - h + 40, vb.y));
@@ -42,46 +87,73 @@ export default function TurkeyMap({
   selectedTripId,
   onPlanNextLoadForCity,
 }) {
-  const [cameraPreset, setCameraPreset] = useState('all');
-  const [vb, setVb] = useState(CAMERA_PRESETS.all.vb);
+  const [activeRegion, setActiveRegion] = useState('all');
+  const [vb, setVb] = useState(REGION_FILTERS[0].vb);
   const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef(null);
   const svgRef = useRef(null);
   const dragRef = useRef(null);
 
+  const currentRegionObj =
+    REGION_FILTERS.find((r) => r.id === activeRegion) || REGION_FILTERS[0];
   const zoomFactor = +(BASE_W / vb.w).toFixed(1);
 
-  const applyPreset = (key) => {
-    setCameraPreset(key);
-    setVb(CAMERA_PRESETS[key]?.vb || CAMERA_PRESETS.all.vb);
+  const applyRegion = (regionId) => {
+    const found = REGION_FILTERS.find((r) => r.id === regionId) || REGION_FILTERS[0];
+    setActiveRegion(found.id);
+    setVb(found.vb);
   };
 
-  const zoomBy = (factor, centerX = vb.x + vb.w / 2, centerY = vb.y + vb.h / 2) => {
-    setCameraPreset('custom');
+  const zoomBy = (factor, centerX, centerY) => {
     setVb((prev) => {
-      const nextW = Math.max(200, Math.min(BASE_W, prev.w * factor));
+      const cx = centerX !== undefined ? centerX : prev.x + prev.w / 2;
+      const cy = centerY !== undefined ? centerY : prev.y + prev.h / 2;
+      const nextW = Math.max(180, Math.min(BASE_W, prev.w * factor));
       const nextH = (nextW / BASE_W) * BASE_H;
-      const ratioX = (centerX - prev.x) / prev.w;
-      const ratioY = (centerY - prev.y) / prev.h;
+      const ratioX = (cx - prev.x) / prev.w;
+      const ratioY = (cy - prev.y) / prev.h;
       return clampViewBox({
-        x: centerX - ratioX * nextW,
-        y: centerY - ratioY * nextH,
+        x: cx - ratioX * nextW,
+        y: cy - ratioY * nextH,
         w: nextW,
         h: nextH,
       });
     });
   };
 
-  const handleWheel = (e) => {
-    e.preventDefault();
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;
-    const py = (e.clientY - rect.top) / rect.height;
-    const svgX = vb.x + px * vb.w;
-    const svgY = vb.y + py * vb.h;
-    const factor = e.deltaY < 0 ? 0.82 : 1.22;
-    zoomBy(factor, svgX, svgY);
-  };
+  // Harita üzerindeyken wheel zoom yapıldığında sayfanın kaymasını tamamen engelle (passive: false)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheelNative = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width;
+      const py = (e.clientY - rect.top) / rect.height;
+      const factor = e.deltaY < 0 ? 0.82 : 1.22;
+
+      setVb((prev) => {
+        const svgX = prev.x + px * prev.w;
+        const svgY = prev.y + py * prev.h;
+        const nextW = Math.max(180, Math.min(BASE_W, prev.w * factor));
+        const nextH = (nextW / BASE_W) * BASE_H;
+        const ratioX = (svgX - prev.x) / prev.w;
+        const ratioY = (svgY - prev.y) / prev.h;
+        return clampViewBox({
+          x: svgX - ratioX * nextW,
+          y: svgY - ratioY * nextH,
+          w: nextW,
+          h: nextH,
+        });
+      });
+    };
+
+    el.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelNative);
+  }, []);
 
   const handlePointerDown = (e) => {
     if (e.button !== 0) return;
@@ -104,7 +176,6 @@ export default function TurkeyMap({
     }
     const scaleX = dragRef.current.startVb.w / rect.width;
     const scaleY = dragRef.current.startVb.h / rect.height;
-    setCameraPreset('custom');
     setVb(
       clampViewBox({
         ...dragRef.current.startVb,
@@ -153,11 +224,16 @@ export default function TurkeyMap({
     return stats;
   }, [freightJobs, vehicles, activeTrips]);
 
+  const visibleCities = React.useMemo(() => {
+    if (activeRegion === 'all') return CITIES;
+    return CITIES.filter((c) => c.region === activeRegion);
+  }, [activeRegion]);
+
   const currentViewBox = `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`;
 
   return (
-    <div className="relative w-full h-full bg-slate-950 rounded-2xl border border-slate-800/90 overflow-hidden shadow-2xl select-none flex flex-col">
-      {/* Üst Harita Bilgi ve Kamera Odak Çubuğu */}
+    <div className="relative w-full h-full bg-slate-950/60 rounded-2xl border border-slate-800/90 overflow-hidden shadow-2xl select-none flex flex-col">
+      {/* Üst Harita Bilgi ve 7 Bölge Seçim Çubuğu */}
       <div className="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl pointer-events-auto shadow-lg">
           <Navigation className="w-4 h-4 text-amber-400" />
@@ -170,20 +246,20 @@ export default function TurkeyMap({
           </span>
         </div>
 
-        {/* Bölge Yakınlaştırma (Zoom Preset) Butonları */}
-        <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl text-[11px] text-slate-300 pointer-events-auto shadow-lg">
-          {Object.entries(CAMERA_PRESETS).map(([key, preset]) => (
+        {/* Bölge Filtreleme & Odaklama Butonları */}
+        <div className="flex flex-wrap items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl text-[11px] text-slate-300 pointer-events-auto shadow-lg">
+          {REGION_FILTERS.map((reg) => (
             <button
-              key={key}
+              key={reg.id}
               type="button"
-              onClick={() => applyPreset(key)}
-              className={`px-2.5 py-1 rounded-lg font-bold transition ${
-                cameraPreset === key
+              onClick={() => applyRegion(reg.id)}
+              className={`px-2 py-1 rounded-lg font-bold transition ${
+                activeRegion === reg.id
                   ? 'bg-amber-500 text-slate-950 shadow'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              {preset.label}
+              {reg.label}
             </button>
           ))}
           {selectedCityId && (
@@ -220,20 +296,21 @@ export default function TurkeyMap({
         </button>
         <button
           type="button"
-          onClick={() => applyPreset('all')}
-          title="Haritayı Sıfırla (Tüm Türkiye)"
+          onClick={() => applyRegion('all')}
+          title="Tüm Türkiye Haritasına Sıfırla"
           className="p-2 rounded-lg bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-slate-300 transition border-t border-slate-700/60"
         >
           <RotateCcw className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* SVG 81 İl Türkiye Harita Alanı */}
+      {/* SVG 81 İl Türkiye Harita Alanı (Deniz ve Arka Plan Yok, Sadece Harita) */}
       <div
-        className={`relative flex-1 w-full h-full min-h-[340px] ${
+        ref={containerRef}
+        style={{ overscrollBehavior: 'contain', touchAction: 'none' }}
+        className={`relative flex-1 w-full h-full min-h-[340px] overscroll-contain ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
         }`}
-        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -246,34 +323,14 @@ export default function TurkeyMap({
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
-            {/* Deniz Derinlik Gradyanı */}
-            <radialGradient id="seaDepth" cx="50%" cy="45%" r="65%">
-              <stop offset="0%" stopColor="#0c1e35" />
-              <stop offset="60%" stopColor="#071324" />
-              <stop offset="100%" stopColor="#020617" />
-            </radialGradient>
-
-            <pattern
-              id="radarGrid"
-              width="50"
-              height="50"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 50 0 L 0 0 0 50"
-                fill="none"
-                stroke="#1e3a5f"
-                strokeWidth="0.6"
-                strokeOpacity="0.3"
-              />
-            </pattern>
+            {currentRegionObj.clipPolygon && (
+              <clipPath id="activeRegionClip">
+                <polygon points={currentRegionObj.clipPolygon} />
+              </clipPath>
+            )}
           </defs>
 
-          {/* Deniz Arka Planı & Koordinat Izgarası */}
-          <rect width={BASE_W} height={BASE_H} fill="url(#seaDepth)" />
-          <rect width={BASE_W} height={BASE_H} fill="url(#radarGrid)" />
-
-          {/* GERÇEK 81 İL SINIRLI TÜRKİYE HARİTASI GÖRSEL KATMANI */}
+          {/* GERÇEK 81 İL SINIRLI TÜRKİYE HARİTASI (Sadece Harita, Arka Plan/Deniz Yok) */}
           <image
             href={`${import.meta.env.BASE_URL}images/turkey-81-provinces.png`}
             x="0"
@@ -281,53 +338,23 @@ export default function TurkeyMap({
             width={BASE_W}
             height={BASE_H}
             preserveAspectRatio="none"
-            opacity="0.92"
+            clipPath={
+              currentRegionObj.clipPolygon ? 'url(#activeRegionClip)' : undefined
+            }
+            opacity="0.95"
           />
-
-          {/* Deniz ve Komşu Coğrafya Etiketleri */}
-          <text
-            x="450"
-            y="24"
-            fill="#1e40af"
-            fillOpacity="0.5"
-            fontSize="12"
-            fontWeight="800"
-            letterSpacing="8"
-            textAnchor="middle"
-          >
-            KARADENİZ
-          </text>
-          <text
-            x="32"
-            y="300"
-            fill="#1e40af"
-            fillOpacity="0.5"
-            fontSize="11"
-            fontWeight="800"
-            letterSpacing="5"
-            textAnchor="middle"
-            transform="rotate(-90 32 300)"
-          >
-            EGE DENİZİ
-          </text>
-          <text
-            x="325"
-            y="475"
-            fill="#1e40af"
-            fillOpacity="0.5"
-            fontSize="12"
-            fontWeight="800"
-            letterSpacing="8"
-            textAnchor="middle"
-          >
-            AKDENİZ
-          </text>
 
           {/* Karayolu ve Otoyol Ağları */}
           {HIGHWAY_LINKS.map(([fromId, toId], idx) => {
             const c1 = cityMap[fromId];
             const c2 = cityMap[toId];
             if (!c1 || !c2) return null;
+            if (
+              activeRegion !== 'all' &&
+              (c1.region !== activeRegion || c2.region !== activeRegion)
+            ) {
+              return null;
+            }
             const bothUnlocked =
               unlockedCities.includes(fromId) && unlockedCities.includes(toId);
             return (
@@ -397,7 +424,7 @@ export default function TurkeyMap({
           })}
 
           {/* Şehir Noktaları ve Şehirlerde Bekleyen Araç İkonları */}
-          {CITIES.map((city) => {
+          {visibleCities.map((city) => {
             const isUnlocked = unlockedCities.includes(city.id);
             const hasDepot = Boolean(depots[city.id]);
             const isSelected = selectedCityId === city.id;
